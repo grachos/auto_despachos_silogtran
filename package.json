@@ -1,0 +1,19 @@
+{
+  "name": "auto-despachos-silogtran",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "API for an LLM to confirm/dispatch Silogtran transport requests (HTTP scraping). Deployed on Vercel.",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^153.0.0",
+    "@supabase/supabase-js": "^2.118.0",
+    "cheerio": "^1.2.0",
+    "puppeteer-core": "^25.16.0"
+  }
+}
