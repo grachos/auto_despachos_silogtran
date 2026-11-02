@@ -53,3 +53,12 @@ Códigos de error conocidos: `VEHICLE_NOT_ACTIVE`, `AMBIGUOUS_OPTION`, `ROUTE_NO
 - Auth: token por usuario; `API_KEY` queda como clave de servicio entre el bot de WhatsApp y esta API.
 - Lotes: despachos largos (Vercel gratis corta a 60 s) → trabajos asíncronos en cola y resultado por WhatsApp. `preparar`/`confirmar` deben ser funciones independientes de la petición HTTP.
 - La **confirmación humana** (resumen + anticipo) se mantiene siempre antes de grabar, también en lotes.
+
+## Notas verificadas del visor (HTML real, 2026-11-02)
+- `GET index.php?page=Despacho.Solicitudtransporte.Visor_105` abre directo, sin Hash. Siempre postear al `action` de la última respuesta.
+- El visor **no filtra por número de solicitud**: se filtra por `soltra_fechacreacion` (leída del formulario de la solicitud) y se busca la fila por columnas `Solicitud` + `Item`. Paginación ("Siguiente >") aún sin implementar.
+- Confirmar es un `TLinkButton` (`ctl0$MainModule$visor$ctlN$ctl36`, N = índice de fila); tomar el EventTarget del JS de la página.
+- "Quitar Todos" (`limpiar`) y "Continuar confirmacion" (`confirmar`) son `submit` simples; "Quitar Todos" solo existe si hay pendientes. El pendiente vive en la **sesión** de Silogtran → limpiar antes y después de cada intento.
+- "Continuar confirmacion" redirige a `Confirmar_111&Hash=<token generado por el servidor>`; validar la pantalla por la existencia de `#ctl0_MainModule_porConfirmar_ctl0_genera_manifiesto`.
+- Al marcar `genera_manifiesto` (autopostback) `genera_orden` y `genera_remesa` quedan marcados y deshabilitados, y aparece "Información Despacho".
+- Endpoint de diagnóstico (incremento 3a, se absorberá en `preparar`): `POST /api/solicitudes/:numero/iniciar` `{item?}` — llega hasta marcar el manifiesto, informa el estado y limpia el pendiente. No graba.

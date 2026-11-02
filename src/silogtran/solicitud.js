@@ -2,20 +2,10 @@
 import * as cheerio from 'cheerio';
 import { formFields } from './client.js';
 import { ApiError } from '../http/errors.js';
+import { norm, cell, int } from './text.js';
 
 const SEARCH_PAGE = 'index.php?page=Despacho.Solicitudtransporte.Buscar';
 const P = 'ctl0$MainModule$';
-
-const norm = (s) =>
-  String(s ?? '')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-
-const cell = (s) => String(s ?? '').replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
-const int = (s) => Number.parseInt(String(s).replace(/[^\d-]/g, ''), 10) || 0;
 
 export function parseSolicitud(html, numero) {
   const $ = cheerio.load(html);
@@ -68,7 +58,11 @@ export function parseSolicitud(html, numero) {
       };
     });
 
-  return { numero, requiereContenedor: contenedor, items };
+  // Creation date (yyyy-mm-dd) is used to narrow the dispatch viewer, which has no request-number filter.
+  const fc = $('input[name$="soltra_fechacreacion"]').first().attr('value') || '';
+  const fechaCreacion = /^\d{4}-\d{2}-\d{2}/.exec(fc.trim())?.[0] ?? null;
+
+  return { numero, requiereContenedor: contenedor, fechaCreacion, items };
 }
 
 export async function buscarSolicitud(client, numero) {

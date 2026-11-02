@@ -1,9 +1,9 @@
 // GET /api/solicitudes/:numero — read-only lookup (origin/destination per item, container flag).
-import { requireApiKey } from '../../src/http/auth.js';
-import { ApiError, sendError } from '../../src/http/errors.js';
-import { requireConfig } from '../../src/config.js';
-import { openSession } from '../../src/silogtran/session.js';
-import { buscarSolicitud } from '../../src/silogtran/solicitud.js';
+import { requireApiKey } from '../../../src/http/auth.js';
+import { ApiError, sendError } from '../../../src/http/errors.js';
+import { requireConfig } from '../../../src/config.js';
+import { openSession } from '../../../src/silogtran/session.js';
+import { buscarSolicitud } from '../../../src/silogtran/solicitud.js';
 
 export default async function handler(req, res) {
   try {
