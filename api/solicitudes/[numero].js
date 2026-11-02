@@ -1,0 +1,26 @@
+// GET /api/solicitudes/:numero — read-only lookup (origin/destination per item, container flag).
+import { requireApiKey } from '../../src/http/auth.js';
+import { ApiError, sendError } from '../../src/http/errors.js';
+import { requireConfig } from '../../src/config.js';
+import { openSession } from '../../src/silogtran/session.js';
+import { buscarSolicitud } from '../../src/silogtran/solicitud.js';
+
+export default async function handler(req, res) {
+  try {
+    if (req.method !== 'GET') {
+      res.setHeader('allow', 'GET');
+      return res.status(405).json({ ok: false, code: 'METHOD_NOT_ALLOWED', message: 'Use GET.' });
+    }
+    requireApiKey(req);
+    requireConfig();
+    const numero = String(req.query.numero || '').trim();
+    if (!/^\d{4,20}$/.test(numero)) {
+      throw new ApiError('INVALID_PARAMETER', 'El número de solicitud debe contener solo dígitos (4 a 20).', { status: 400 });
+    }
+    const { client } = await openSession();
+    const solicitud = await buscarSolicitud(client, numero);
+    res.status(200).json({ ok: true, solicitud });
+  } catch (e) {
+    sendError(res, e);
+  }
+}
