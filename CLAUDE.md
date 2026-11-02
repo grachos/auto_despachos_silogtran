@@ -10,12 +10,13 @@ API que un LLM usa para confirmar/despachar solicitudes de transporte en **Silog
 
 ## Base técnica
 - Reutilizar el cliente de `grachos/apis_legalizacion_silogtran` (`src/silogtran.js`, `src/session.js`): login + centro de costo + reto AWS WAF con Chromium, cookie jar, cola serializada, `pradoCallback`, `formFields`.
+- Centro de costo: siempre se escoge el primero disponible (sin variable de entorno).
 - En Vercel: `@sparticuz/chromium` + `puppeteer-core` solo para resolver el WAF; el resto es HTTP plano.
 - Cookies/sesión persistidas en **Supabase** para no relogear en cada invocación.
 - Lock por solicitud (una solicitud a la vez).
 
 ## Variables de entorno
-`SILOG_BASE_URL` (https://construproyec.colombiasoftware.net), `SILOG_USER`, `SILOG_PASSWORD`, `SILOG_COST_CENTER`, `API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`.
+`SILOG_BASE_URL` (https://construproyec.colombiasoftware.net), `SILOG_USER`, `SILOG_PASSWORD`, `API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`.
 
 ## Flujo de despacho (pantalla `Despacho.Solicitudtransporte.Visor_105`, validado manualmente)
 1. Consultar en `Despacho.Solicitudtransporte.Buscar` (campo `soltra_codigo`; con un resultado abre el formulario). Leer `soltra_contenedor` (SI/NO), origen y destino.

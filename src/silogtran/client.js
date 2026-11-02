@@ -220,17 +220,14 @@ export class Silogtran {
     const { $, form, data } = formFields(r.text);
     const name = 'ctl0$MainModule$centrocosto';
     const field = $(`[name="${name}"]`).first();
-    const wanted = (process.env.SILOG_COST_CENTER || 'CONSTRUPROYEC-PRINCIPAL').toLowerCase();
     if (field.is('select')) {
-      const opts = field
+      // Always the first real cost center offered to the user.
+      const opt = field
         .find('option')
         .toArray()
         .map((o) => ({ value: $(o).attr('value') ?? $(o).text(), text: $(o).text().trim() }))
-        .filter((o) => o.value !== '' && !/seleccione/i.test(o.text));
-      const opt =
-        opts.find((o) => o.value.toLowerCase() === wanted || o.text.toLowerCase().includes(wanted)) || opts[0];
+        .find((o) => o.value !== '' && !/seleccione/i.test(o.text));
       if (!opt) throw new SilogtranError('User has no cost centers available.', { status: 500, code: 'COST_CENTER_FAILED' });
-      if (!opt.text.toLowerCase().includes(wanted)) console.warn(`[login] cost center '${wanted}' not found, using '${opt.text}'`);
       data[name] = opt.value;
       this.costCenter = opt.text;
     } else if (!data[name]) {
