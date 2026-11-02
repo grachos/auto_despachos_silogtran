@@ -62,3 +62,11 @@ Códigos de error conocidos: `VEHICLE_NOT_ACTIVE`, `AMBIGUOUS_OPTION`, `ROUTE_NO
 - "Continuar confirmacion" redirige a `Confirmar_111&Hash=<token generado por el servidor>`; validar la pantalla por la existencia de `#ctl0_MainModule_porConfirmar_ctl0_genera_manifiesto`.
 - Al marcar `genera_manifiesto` (autopostback) `genera_orden` y `genera_remesa` quedan marcados y deshabilitados, y aparece "Información Despacho".
 - Endpoint de diagnóstico (incremento 3a, se absorberá en `preparar`): `POST /api/solicitudes/:numero/iniciar` `{item?}` — llega hasta marcar el manifiesto, informa el estado y limpia el pendiente. No graba.
+
+## Notas verificadas de los autocompletes (HTML real, 2026-11-02)
+- CAutoComplete: `POST` al `action` actual con **todos** los campos del form + `PRADO_CALLBACK_TARGET` = `PRADO_POSTBACK_TARGET` = name del campo + `PRADO_CALLBACK_PARAMETER` = `["texto",0,"__CAutoComplete_onSuggest__"]`. `%` es comodín. Respuesta: `<ul>` con un `<li title="false">` por resultado (sin ninguno = no encontrado); los **atributos del `li`** son los valores que se copian a los campos (nombre = id en minúsculas; `_idhidden` → `$IDHidden`). Comparar siempre contra el atributo, no contra el texto visible (la ruta trae dobles espacios).
+- Los campos `disabled` no se envían: copiar atributos solo a campos presentes en el form. Los callbacks traen `X-PRADO-ACTIONS` (`Prado.Element.setValue`) y `X-PRADO-PAGESTATE`: aplicarlos al estado antes de la siguiente petición (`PradoPage`).
+- Orden obligatorio: vehículo (postback `buscar_activo` "Seleccionar") **antes** de la ruta; al elegir la ruta se disparan los `TEventTriggeredCallback` de `ruta_codigo.change` (hoy ctl25 y ctl26; se leen del JS de la página) y se calcula el Anticipo. Sin vehículo el Anticipo queda vacío.
+- Los `ctlN` pueden cambiar: ubicar triggers y botones "Adicionar" por control/pestaña, no por número fijo.
+- Datos de prueba: placa `KNL058` (activa), `ZZZ999` (inexistente), ruta `SANTA MARTA%SANTA MARTA` (ID 544), banco `BANCOLOMBIA%PROPIOS` (ID 3), contenedor `WHSU545823-0` (ID 283), solicitud `0101072807` (no grabar).
+- `POST /api/solicitudes/:numero/iniciar` ahora acepta `{ item?, placa?, tipoManifiesto? }`; con `placa` también llena vehículo, ruta, fechas y tipo de manifiesto (3b) y devuelve el resumen. Sigue sin grabar y siempre limpia el pendiente.
