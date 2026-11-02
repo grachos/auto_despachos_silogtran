@@ -5,3 +5,4 @@ create table if not exists public.silog_session (
   updated_at timestamptz not null default now()
 );
 alter table public.silog_session enable row level security;
+comment on table public.silog_session is 'Silogtran cookie jar for auto_despachos_silogtran (server-side access only).';
