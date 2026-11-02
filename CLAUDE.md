@@ -43,3 +43,13 @@ Consumidor: un LLM. Errores: `{ ok:false, code:"FIXED_CODE", message:"<español>
   `{ ok, status:"DISPATCHED"|"DISPATCHED_NOT_MIGRATED", message:"Se despachó a satisfacción. Remesa X, Manifiesto Y. Radicado Ministerio Z | Sin migrar al Ministerio.", documents{ordenCargue,remesa,manifiesto,transferencia}, rndc{migrated,radicado,fechaHora}, warnings[] }`
 
 Códigos de error conocidos: `VEHICLE_NOT_ACTIVE`, `AMBIGUOUS_OPTION`, `ROUTE_NOT_FOUND`, `CONTAINER_REQUIRED`, `CONTAINER_NOT_FOUND`, `ANTICIPO_CHANGED` (+ los de infraestructura que se definan: auth, login, WAF, lock).
+
+## Visión multiusuario (roadmap, aún no implementado)
+- La app tendrá usuarios independientes de Silogtran. En la web (Vercel) cada persona registra su usuario y contraseña de Silog; con eso se le entrega un **código de un solo uso, con expiración**, para vincular su número de **WhatsApp Business API (Meta)**.
+- Los despachos se lanzan desde WhatsApp con una IA conversacional que pregunta los valores en lenguaje natural; también puede recibir **una tabla** con varios despachos, interpretarla, crearlos y devolver los resultados.
+- Credenciales Silog por usuario: guardadas en Supabase **cifradas** (AES-GCM, clave maestra solo en variable de entorno), descifradas solo en memoria al abrir la sesión, nunca en logs ni respuestas. Viajan solo por HTTPS.
+- Sesión Silogtran por usuario (`silog_session.id` = id de usuario; hoy `default` = "usuario cero" con `SILOG_USER`/`SILOG_PASSWORD`).
+- Token de `preparar` ligado al usuario. Lock por usuario+solicitud guardado en Supabase (Vercel no comparte memoria).
+- Auth: token por usuario; `API_KEY` queda como clave de servicio entre el bot de WhatsApp y esta API.
+- Lotes: despachos largos (Vercel gratis corta a 60 s) → trabajos asíncronos en cola y resultado por WhatsApp. `preparar`/`confirmar` deben ser funciones independientes de la petición HTTP.
+- La **confirmación humana** (resumen + anticipo) se mantiene siempre antes de grabar, también en lotes.

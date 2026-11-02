@@ -1,9 +1,9 @@
-// Persists the Silogtran cookie jar in Supabase so serverless invocations reuse the session.
+// Persists the Silogtran cookie jar in Supabase (one row per app user) so serverless invocations reuse the session.
 import { supabase } from './supabase.js';
 import { ApiError } from '../http/errors.js';
 
 const TABLE = 'silog_session';
-const ID = 'default';
+export const DEFAULT_USER_ID = 'default';
 
 function storeError(e) {
   return new ApiError('SESSION_STORE_FAILED', 'No se pudo leer o guardar la sesión en Supabase.', {
@@ -12,15 +12,15 @@ function storeError(e) {
   });
 }
 
-export async function loadCookies() {
-  const { data, error } = await supabase().from(TABLE).select('cookies').eq('id', ID).maybeSingle();
+export async function loadCookies(userId = DEFAULT_USER_ID) {
+  const { data, error } = await supabase().from(TABLE).select('cookies').eq('id', userId).maybeSingle();
   if (error) throw storeError(error);
   return data?.cookies || null;
 }
 
-export async function saveCookies(cookies) {
+export async function saveCookies(cookies, userId = DEFAULT_USER_ID) {
   const { error } = await supabase()
     .from(TABLE)
-    .upsert({ id: ID, cookies, updated_at: new Date().toISOString() });
+    .upsert({ id: userId, cookies, updated_at: new Date().toISOString() });
   if (error) throw storeError(error);
 }
