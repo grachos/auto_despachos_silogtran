@@ -98,7 +98,7 @@ export class Silogtran {
     }
   }
 
-  async request(path, { method = 'GET', form = null } = {}) {
+  async request(path, { method = 'GET', form = null, timeoutSec } = {}) {
     let url = new URL(path, this.base);
     let wafTries = 0;
     for (let hops = 0; hops < 10; hops++) {
@@ -112,7 +112,7 @@ export class Silogtran {
           headers,
           body: form ? new URLSearchParams(form).toString() : undefined,
           redirect: 'manual',
-          signal: AbortSignal.timeout(Number(process.env.SILOG_TIMEOUT_SEC || 45) * 1000),
+          signal: AbortSignal.timeout((timeoutSec ?? Number(process.env.SILOG_TIMEOUT_SEC || 45)) * 1000),
         });
       } catch (e) {
         throw new SilogtranError(`Silogtran unreachable: ${e?.cause?.code || e?.message || e}`, { code: 'SILOGTRAN_UNREACHABLE' });

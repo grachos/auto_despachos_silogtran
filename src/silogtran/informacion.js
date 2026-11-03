@@ -99,14 +99,17 @@ export function resolveOption(options, input, label) {
   });
 }
 
+export function selectOptions(form, name) {
+  const $ = form.$();
+  return $(`select[name="${name}"] option`)
+    .toArray()
+    .map((o) => ({ value: (o.attribs.value ?? '').trim(), text: $(o).text().trim() }))
+    .filter((o) => o.value !== '');
+}
+
 function setManifestType(form, input) {
   const name = need(form, `${P}tipmanrndc_codigo`);
-  const options = form
-    .$()(`select[name="${name}"] option`)
-    .toArray()
-    .map((o) => ({ value: (o.attribs.value ?? '').trim(), text: form.$()(o).text().trim() }))
-    .filter((o) => o.value !== '');
-  const opt = resolveOption(options, input ?? '1', 'el tipo de manifiesto');
+  const opt = resolveOption(selectOptions(form, name), input ?? '1', 'el tipo de manifiesto');
   form.fields[name] = opt.value;
   return { codigo: opt.value, nombre: opt.text };
 }

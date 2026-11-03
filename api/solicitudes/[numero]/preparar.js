@@ -1,5 +1,6 @@
 // POST /api/solicitudes/:numero/preparar — fills the whole dispatch form without saving and returns a
 // summary plus a signed token for `confirmar`. Nothing is saved; the pending item is always cleared.
+import { randomUUID } from 'node:crypto';
 import { requireApiKey } from '../../../src/http/auth.js';
 import { ApiError, sendError } from '../../../src/http/errors.js';
 import { requireConfig } from '../../../src/config.js';
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
     const input = parsePreparar(req.body);
     const { client } = await openSession();
     const { summary, item } = await runPreparation(client, numero, input);
-    const token = signToken({ numero, item, input, anticipo: summary.anticipoSugerido });
+    const token = signToken({ jti: randomUUID(), numero, item, input, anticipo: summary.anticipoSugerido });
     res.status(200).json({ ok: true, resumen: summary, token, tokenExpiraEnSegundos: 900 });
   } catch (e) {
     sendError(res, e);

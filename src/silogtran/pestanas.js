@@ -7,15 +7,20 @@ import { need } from './informacion.js';
 
 const P = 'ctl0$MainModule$';
 
-function tableHas(form, selector, match) {
+// Rows of a table as { normalizedHeader: cellText }.
+export function readTable(form, selector) {
   const $ = form.$();
   const rows = $(`${selector} tr`).toArray();
-  if (!rows.length) return false;
+  if (!rows.length) return [];
   const headers = $(rows[0]).find('th').toArray().map((th) => norm($(th).text()));
-  return rows.slice(1).some((tr) => {
+  return rows.slice(1).map((tr) => {
     const tds = $(tr).children('td').toArray().map((td) => cell($(td).text()));
-    return Object.entries(match).every(([h, v]) => norm(tds[headers.indexOf(h)]) === norm(v));
+    return Object.fromEntries(headers.map((h, i) => [h, tds[i] ?? '']));
   });
+}
+
+function tableHas(form, selector, match) {
+  return readTable(form, selector).some((row) => Object.entries(match).every(([h, v]) => norm(row[h]) === norm(v)));
 }
 
 export async function addObservaciones(form, { numero, item, input }) {
