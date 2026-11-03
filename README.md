@@ -39,16 +39,17 @@ curl -s -X POST -H "x-api-key: $API_KEY" -H "Content-Type: application/json" \
 | POST | `/api/invitaciones/:token/login` | la persona prueba su usuario y contraseña de Silogtran; se guardan cifrados y se abre sesión web |
 
 | POST | `/api/vinculacion/codigo` | (cookie de sesión) genera el código `VINCULAR 123456` (10 min) |
+| GET/POST | `/api/whatsapp/webhook` | webhook de WhatsApp Cloud API (verificación de Meta y mensajes; valida la firma) |
 | GET | `/api/vinculacion/estado` | (cookie de sesión) indica si el WhatsApp ya está vinculado |
 
-Pantallas: `/invitacion/<token>`, `/vincular`, `/manual` (público) y `/admin`.
+Pantallas: `/invitacion/<token>`, `/vincular`, `/manual` y `/privacidad` (públicas) y `/admin`.
 
 Siguientes pasos: webhook de WhatsApp, API por usuario e IA (ver roadmap en `CLAUDE.md`).
 
 ## Variables de entorno
 Ver [`.env.example`](./.env.example) (sin valores). En Vercel, marcarlas para **Production** (y Preview si se prueba ahí) y volver a desplegar tras cambiarlas.
 
-`SILOG_BASE_URL`, `SILOG_USER`, `SILOG_PASSWORD`, `API_KEY`, `TOKEN_SECRET`, `ENCRYPTION_KEY`, `ADMIN_KEY`, `WHATSAPP_NUMBER`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (clave `service_role`/secret, nunca la `anon`/publishable).
+`SILOG_BASE_URL`, `SILOG_USER`, `SILOG_PASSWORD`, `API_KEY`, `TOKEN_SECRET`, `ENCRYPTION_KEY`, `ADMIN_KEY`, `WHATSAPP_NUMBER`, `WHATSAPP_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_PHONE_ID`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (clave `service_role`/secret, nunca la `anon`/publishable).
 
 ## Estructura
 ```
