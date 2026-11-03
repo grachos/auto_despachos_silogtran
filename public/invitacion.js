@@ -1,4 +1,7 @@
-const token = location.pathname.split('/').filter(Boolean).pop() || '';
+// Token from ?t=<token> (preferred link format) or from the last path segment (/invitacion/<token>).
+const qs = new URLSearchParams(location.search).get('t');
+const last = location.pathname.split('/').filter(Boolean).pop() || '';
+const token = qs || (last === 'invitacion' || last === 'invitacion.html' ? '' : last);
 const f = document.getElementById('f'), go = document.getElementById('go'), msg = document.getElementById('msg');
 const FINAL = ['INVITATION_NOT_FOUND', 'INVITATION_USED', 'INVITATION_EXPIRED', 'INVITATION_LOCKED'];
 

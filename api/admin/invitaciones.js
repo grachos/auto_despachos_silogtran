@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     res.status(200).json({
       ok: true,
       usuario: { id: user.id, nombre: user.nombre },
-      invitacion: { link: `https://${host}/invitacion/${raw}`, token: raw, expiraEn: expiresAt, horasDeVigencia: 2 },
+      invitacion: { link: `https://${host}/invitacion?t=${raw}`, token: raw, expiraEn: expiresAt, horasDeVigencia: 2 },
     });
   } catch (e) {
     sendError(res, e);

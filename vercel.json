@@ -10,7 +10,7 @@
   "rewrites": [
     {
       "source": "/invitacion/:token",
-      "destination": "/invitacion.html"
+      "destination": "/invitacion"
     }
   ],
   "headers": [
