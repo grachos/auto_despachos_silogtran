@@ -55,7 +55,9 @@ Ver [`.env.example`](./.env.example) (sin valores). En Vercel, marcarlas para **
 
 ## Estructura
 ```
-api/                         funciones serverless de Vercel
+api/                         funciones serverless de Vercel (máx. 12 en el plan Hobby; hoy 7, con dispatchers)
+src/routes/                  lógica de cada ruta (admin, vinculacion, solicitudes)
+scripts/check-functions.mjs  verifica el límite de funciones (npm run check:functions)
 src/silogtran/               cliente HTTP, WAF, sesión, formulario PRADO, pasos del despacho
 src/store/                   Supabase: sesión y confirmaciones
 src/confirmar.js             orquestación de confirmar

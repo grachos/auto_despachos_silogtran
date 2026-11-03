@@ -1,8 +1,8 @@
 // POST /api/solicitudes/:numero/confirmar { token, anticipo: "total"|"cero" } — SAVES the dispatch in Silogtran.
-import { requireApiKey } from '../../../src/http/auth.js';
-import { ApiError, sendError } from '../../../src/http/errors.js';
-import { requireConfig } from '../../../src/config.js';
-import { confirmDispatch, parseConfirmar } from '../../../src/confirmar.js';
+import { requireApiKey } from '../../http/auth.js';
+import { ApiError, sendError } from '../../http/errors.js';
+import { requireConfig } from '../../config.js';
+import { confirmDispatch, parseConfirmar } from '../../confirmar.js';
 
 export default async function handler(req, res) {
   try {

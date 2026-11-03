@@ -8,7 +8,8 @@
     "node": "22.x"
   },
   "scripts": {
-    "dev": "vercel dev"
+    "dev": "vercel dev",
+    "check:functions": "node scripts/check-functions.mjs"
   },
   "dependencies": {
     "@sparticuz/chromium": "^153.0.0",

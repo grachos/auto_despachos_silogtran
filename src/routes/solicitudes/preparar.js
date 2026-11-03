@@ -1,13 +1,13 @@
 // POST /api/solicitudes/:numero/preparar — fills the whole dispatch form without saving and returns a
 // summary plus a signed token for `confirmar`. Nothing is saved; the pending item is always cleared.
 import { randomUUID } from 'node:crypto';
-import { requireApiKey } from '../../../src/http/auth.js';
-import { ApiError, sendError } from '../../../src/http/errors.js';
-import { requireConfig } from '../../../src/config.js';
-import { parsePreparar } from '../../../src/validation.js';
-import { assertTokenSecret, signToken } from '../../../src/token.js';
-import { openSession } from '../../../src/silogtran/session.js';
-import { runPreparation } from '../../../src/silogtran/preparar.js';
+import { requireApiKey } from '../../http/auth.js';
+import { ApiError, sendError } from '../../http/errors.js';
+import { requireConfig } from '../../config.js';
+import { parsePreparar } from '../../validation.js';
+import { assertTokenSecret, signToken } from '../../token.js';
+import { openSession } from '../../silogtran/session.js';
+import { runPreparation } from '../../silogtran/preparar.js';
 
 export default async function handler(req, res) {
   try {

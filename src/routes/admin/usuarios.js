@@ -1,8 +1,8 @@
 // GET /api/admin/usuarios — users, WhatsApp link status and dispatch counts.
-import { sendError } from '../../src/http/errors.js';
-import { requireEnv } from '../../src/config.js';
-import { requireAdmin } from '../../src/http/admin.js';
-import { listUsers } from '../../src/store/admin.js';
+import { sendError } from '../../http/errors.js';
+import { requireEnv } from '../../config.js';
+import { requireAdmin } from '../../http/admin.js';
+import { listUsers } from '../../store/admin.js';
 
 export default async function handler(req, res) {
   res.setHeader('cache-control', 'no-store');

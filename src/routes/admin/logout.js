@@ -1,5 +1,5 @@
 // POST /api/admin/logout — clears the admin cookie.
-import { clearAdminCookie } from '../../src/http/admin.js';
+import { clearAdminCookie } from '../../http/admin.js';
 
 export default function handler(req, res) {
   res.setHeader('cache-control', 'no-store');

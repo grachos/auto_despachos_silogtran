@@ -1,7 +1,7 @@
 // POST /api/admin/login { key } — exchanges the ADMIN_KEY for an 8 h HttpOnly cookie (Path=/api/admin).
-import { sendError, ApiError } from '../../src/http/errors.js';
-import { requireEnv } from '../../src/config.js';
-import { adminLogin, setAdminCookie } from '../../src/http/admin.js';
+import { sendError, ApiError } from '../../http/errors.js';
+import { requireEnv } from '../../config.js';
+import { adminLogin, setAdminCookie } from '../../http/admin.js';
 
 export default async function handler(req, res) {
   res.setHeader('cache-control', 'no-store');

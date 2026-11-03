@@ -1,9 +1,9 @@
 // GET /api/vinculacion/estado — (session cookie) whether the user's WhatsApp is already linked.
-import { sendError } from '../../src/http/errors.js';
-import { requireEnv } from '../../src/config.js';
-import { requireSession } from '../../src/http/session.js';
-import { getLink } from '../../src/store/vinculacion.js';
-import { botDisplay } from '../../src/whatsapp.js';
+import { sendError } from '../../http/errors.js';
+import { requireEnv } from '../../config.js';
+import { requireSession } from '../../http/session.js';
+import { getLink } from '../../store/vinculacion.js';
+import { botDisplay } from '../../whatsapp.js';
 
 export default async function handler(req, res) {
   res.setHeader('cache-control', 'no-store');

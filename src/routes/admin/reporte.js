@@ -1,10 +1,10 @@
 // GET /api/admin/reporte?desde=YYYY-MM-DD&hasta=YYYY-MM-DD&usuario=<id|cero>&estado=DONE|FAILED|UNKNOWN[&format=csv]
 // One row per dispatch attempt with documents, Ministry filing number and timings, plus KPIs.
-import { sendError, ApiError } from '../../src/http/errors.js';
-import { requireEnv } from '../../src/config.js';
-import { requireAdmin } from '../../src/http/admin.js';
-import { listDispatches } from '../../src/store/admin.js';
-import { rangeToIso, buildKpis, toCsv } from '../../src/admin/report.js';
+import { sendError, ApiError } from '../../http/errors.js';
+import { requireEnv } from '../../config.js';
+import { requireAdmin } from '../../http/admin.js';
+import { listDispatches } from '../../store/admin.js';
+import { rangeToIso, buildKpis, toCsv } from '../../admin/report.js';
 
 const ESTADOS = new Set(['DONE', 'FAILED', 'UNKNOWN']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

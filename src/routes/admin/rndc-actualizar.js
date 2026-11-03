@@ -1,11 +1,11 @@
 // POST /api/admin/rndc-actualizar — re-reads the Ministry (RNDC) status of recent manifests that have no filing
 // number yet (up to 10 per call) and stores radicado / date-time.
-import { sendError } from '../../src/http/errors.js';
-import { requireEnv, requireConfig } from '../../src/config.js';
-import { requireAdmin } from '../../src/http/admin.js';
-import { pendingRndc, saveRndc } from '../../src/store/admin.js';
-import { openSession } from '../../src/silogtran/session.js';
-import { readRndc } from '../../src/silogtran/grabar.js';
+import { sendError } from '../../http/errors.js';
+import { requireEnv, requireConfig } from '../../config.js';
+import { requireAdmin } from '../../http/admin.js';
+import { pendingRndc, saveRndc } from '../../store/admin.js';
+import { openSession } from '../../silogtran/session.js';
+import { readRndc } from '../../silogtran/grabar.js';
 
 export default async function handler(req, res) {
   res.setHeader('cache-control', 'no-store');

@@ -1,10 +1,10 @@
 // POST /api/admin/invitaciones { nombre } | { userId } — creates an app user (or re-invites one) and returns a
 // single-use link that expires in 2 hours. Admin only (ADMIN_KEY header or admin cookie). The raw token is shown once.
-import { requireAdmin } from '../../src/http/admin.js';
-import { ApiError, sendError } from '../../src/http/errors.js';
-import { requireEnv } from '../../src/config.js';
-import { createUser, findUserByRef, createInvitation } from '../../src/store/usuarios.js';
-import { hashToken, newRawToken } from '../../src/invitaciones.js';
+import { requireAdmin } from '../../http/admin.js';
+import { ApiError, sendError } from '../../http/errors.js';
+import { requireEnv } from '../../config.js';
+import { createUser, findUserByRef, createInvitation } from '../../store/usuarios.js';
+import { hashToken, newRawToken } from '../../invitaciones.js';
 
 export default async function handler(req, res) {
   try {

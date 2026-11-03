@@ -1,10 +1,10 @@
 // POST /api/vinculacion/codigo — (session cookie) creates a one-time code to link the user's WhatsApp.
 // The person sends "VINCULAR <code>" to the bot number; the webhook (M3) consumes it.
-import { sendError } from '../../src/http/errors.js';
-import { requireEnv } from '../../src/config.js';
-import { requireSession } from '../../src/http/session.js';
-import { createCode } from '../../src/store/vinculacion.js';
-import { botDisplay, waLink } from '../../src/whatsapp.js';
+import { sendError } from '../../http/errors.js';
+import { requireEnv } from '../../config.js';
+import { requireSession } from '../../http/session.js';
+import { createCode } from '../../store/vinculacion.js';
+import { botDisplay, waLink } from '../../whatsapp.js';
 
 export default async function handler(req, res) {
   res.setHeader('cache-control', 'no-store');
