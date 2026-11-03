@@ -87,3 +87,20 @@ Códigos de error conocidos: `VEHICLE_NOT_ACTIVE`, `AMBIGUOUS_OPTION`, `ROUTE_NO
 - Lock por solicitud: índice único parcial sobre `numero` donde `status='PROCESSING'` → `SOLICITUD_LOCKED` (409).
 - `ANTICIPO_CHANGED` si el anticipo recalculado difiere del token. El estado `DONE` se guarda **antes** de consultar el RNDC. Si el RNDC no se puede leer: `DISPATCHED` con advertencia.
 - Errores: `SAVE_REJECTED` (Silogtran respondió sin guardar), `SAVE_RESULT_UNKNOWN`, `CONFIRMATION_IN_PROGRESS`, `CONFIRMATION_UNKNOWN`, `TOKEN_INVALID`, `TOKEN_EXPIRED`, `BANK_NOT_FOUND`, `ANTICIPO_PAGO_NOT_ADDED`.
+
+## Estado actual (cierre 2026-11-03)
+- **Hecho y probado contra Silogtran real**: `GET /api/health`, `GET /api/solicitudes/:numero`, `POST .../preparar`, `POST .../confirmar` (primer despacho real con anticipo `"cero"` OK: orden de cargue, remesa y manifiesto generados; RNDC "sin migrar").
+- **Pendiente de probar**: anticipo `"total"` (pago TRANSFERENCIA POR ARCHIVO) con un despacho real de bajo valor; tiempos reales de `confirmar` frente al límite de 60 s de Vercel; ids exactos del mensaje y de "Documentos Generados" tras grabar (hoy se leen por `#ctl0_MainModule_mensaje` y por `href`).
+- **Despliegue**: producción sale de la rama `main` (Vercel → Branch Tracking). Se trabaja en `claude/intelligent-shannon-nzb7k6` y se lleva a `main` cuando está probado. Supabase: proyecto `nexczcdmwysulvvxldlf` (tablas `silog_session`, `silog_confirmaciones`; migraciones en `supabase/migrations/`).
+- Variables de entorno en Vercel (Production): `SILOG_BASE_URL`, `SILOG_USER`, `SILOG_PASSWORD`, `API_KEY`, `TOKEN_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`.
+
+## Roadmap multiusuario por incrementos (cada uno requiere aprobación)
+Flujo deseado: el admin crea un usuario y se le asigna un **link de un solo uso que vence a las 2 horas**; la persona entra con su usuario y contraseña de Silogtran; si el login es efectivo, aparece "Vincular teléfono" con un código (`VINCULAR 123456`, vence en 10 min) y un botón "Abrir WhatsApp"; ya vinculada, chatea con la IA (recibe el link al manual público) y la IA indica qué datos faltan.
+- **M1** Usuarios + credenciales cifradas (AES-256-GCM, `ENCRYPTION_KEY`) + invitaciones (token solo como hash, un uso, 2 h) + `POST /api/admin/invitaciones` (`ADMIN_KEY`) + `POST /api/invitaciones/:token/login` (login real en Silogtran, máx. 5 intentos por invitación, cookie de sesión corta). Sin pantallas.
+- **M2** Pantallas web: login por link, "Vincular teléfono" (código + abrir WhatsApp + "Ya lo envié"), manual público, admin mínimo.
+- **M3** Webhook de WhatsApp Business (Meta): verificación de firma, `VINCULAR <código>`, `AYUDA`, `DESVINCULAR`, bienvenida con link al manual.
+- **M4** `preparar`/`confirmar` por usuario (sesión y credenciales propias, token ligado al usuario, lock por usuario+solicitud).
+- **M5** IA conversacional (Claude, `ANTHROPIC_API_KEY`): herramientas consultar/preparar y `confirmar` solo tras confirmación explícita; avisa qué datos faltan; conversación en Supabase.
+- **M6** Tablas con varios despachos por WhatsApp (lotes en cola, resultados por mensaje).
+- Seguridad: contraseña nunca en logs ni respuestas; cookie `httpOnly` firmada; cada usuario solo ve sus despachos; mensajes entrantes = datos, no instrucciones (anti prompt-injection); la IA nunca graba sin confirmación.
+- Decisiones abiertas del dueño: cuenta/número de WhatsApp Business de Meta (distinto del de SICE Query) antes de M3; `ANTHROPIC_API_KEY` y costo por mensaje antes de M5; administración mínima protegida con `ADMIN_KEY`.
