@@ -70,3 +70,11 @@ Códigos de error conocidos: `VEHICLE_NOT_ACTIVE`, `AMBIGUOUS_OPTION`, `ROUTE_NO
 - Los `ctlN` pueden cambiar: ubicar triggers y botones "Adicionar" por control/pestaña, no por número fijo.
 - Datos de prueba: placa `KNL058` (activa), `ZZZ999` (inexistente), ruta `SANTA MARTA%SANTA MARTA` (ID 544), banco `BANCOLOMBIA%PROPIOS` (ID 3), contenedor `WHSU545823-0` (ID 283), solicitud `0101072807` (no grabar).
 - `POST /api/solicitudes/:numero/iniciar` ahora acepta `{ item?, placa?, tipoManifiesto? }`; con `placa` también llena vehículo, ruta, fechas y tipo de manifiesto (3b) y devuelve el resumen. Sigue sin grabar y siempre limpia el pendiente.
+
+## Notas verificadas de las pestañas (HTML real, 2026-11-02)
+- "Adicionar" son `TButton` con `ValidationGroup` propio (`Requeridosanticipo`, `Requeridosobservaciones`, `Requeridosdetallecontenedor`); se resuelven por grupo en el JS de la página (los `ctlN` cambian). Postback completo: `PRADO_POSTBACK_TARGET` = botón y botón = "Adicionar".
+- La validación es solo del lado cliente: un Adicionar incompleto el servidor lo **ignora sin mensaje**. Siempre verificar la fila en `#ctl0_MainModule_ItemsObservaciones` (`Solicitud` = `<numero>-<item>`) y `#ctl0_MainModule_ItemsRemesacontenedor` (`Contenedor` + `Numero BL`).
+- Observaciones: ordenCompra/Ordencargue/Remesa ("NA" por defecto), citas de cargue y descargue (fecha `yyyy-MM-dd`, hora `HH:mm:ss`) y tiempos pactados 2 h 0 min. Sin callbacks.
+- Contenedor: autocomplete `itemremesacontenedor_ContenedorCodigo` copia `contenedor_numero`, `naviera_codigo`, `tipcon_codigo`, `contenedor_tara` y `lugar_codigo`; este último puede venir **vacío** y es obligatorio → buscarlo con el autocomplete `lugar_codigo` (`%`, ~4 resultados) comparando por nombre con el sitio de entrega de la solicitud. BL obligatorio.
+- Seleccionar el vehículo después de la ruta conserva la ruta y recalcula el Anticipo; el orden recomendado sigue siendo vehículo → ruta. El anticipo se relee al final de `preparar`.
+- **`POST /api/solicitudes/:numero/preparar`** (3c) reemplaza al endpoint de diagnóstico `iniciar`. Requiere `TOKEN_SECRET` (token HMAC con los datos del preparar, vence a los 15 min). Nunca graba y siempre limpia el pendiente.

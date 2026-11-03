@@ -5,13 +5,13 @@ import { norm } from './text.js';
 import { bogotaNow, addDays } from './dates.js';
 
 const P = 'ctl0$MainModule$';
-const need = (form, name) => {
+export const need = (form, name) => {
   if (!(name in form.fields)) {
     throw new ApiError('FORM_FIELD_MISSING', 'La pantalla de Silogtran no tiene un campo esperado.', { status: 502, detail: name });
   }
   return name;
 };
-const parseMoney = (s) => {
+export const parseMoney = (s) => {
   const n = Number(String(s ?? '').replace(/[^\d.]/g, ''));
   return String(s ?? '').trim() && Number.isFinite(n) ? n : null;
 };

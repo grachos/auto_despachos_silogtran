@@ -119,4 +119,14 @@ export class PradoPage {
     }
     return found.length ? found : fallback;
   }
+
+  // EventTarget of the TButton bound to a ValidationGroup (ctlN numbers can change between versions).
+  buttonByGroup(group, fallback) {
+    for (const m of this.html.matchAll(/TButton\(\{([^;]*?)\}\);/g)) {
+      if (!m[1].includes(`'ValidationGroup':'${group}'`)) continue;
+      const target = /'EventTarget':'([^']+)'/.exec(m[1])?.[1];
+      if (target) return target;
+    }
+    return fallback;
+  }
 }
