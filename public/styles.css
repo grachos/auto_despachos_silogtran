@@ -36,3 +36,29 @@ pre{background:#0f172a;color:#e2e8f0;border-radius:10px;padding:12px 14px;overfl
 .bubble.b{background:#f1f5f9}
 footer{margin-top:32px;color:var(--muted);font-size:.85rem}
 .card>h2.first{margin-top:0}
+/* admin panel */
+main.panel{max-width:1200px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0 0;border-bottom:1px solid var(--line)}
+.tab{padding:9px 16px;border:1px solid transparent;border-bottom:none;border-radius:10px 10px 0 0;background:none;font:inherit;font-weight:600;color:var(--muted);cursor:pointer}
+.tab.active{background:var(--card);border-color:var(--line);color:var(--text);margin-bottom:-1px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-top:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.kpi .v{font-size:1.6rem;font-weight:700;line-height:1.2}
+.kpi .l{color:var(--muted);font-size:.85rem}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:14px}
+.filters label{margin:0 0 4px;font-size:.85rem}
+.filters input,.filters select{padding:8px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff;color:inherit}
+.scroll{overflow-x:auto;margin-top:12px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.scroll table{margin:0;min-width:900px;font-size:.88rem}
+.scroll th{position:sticky;top:0;white-space:nowrap}
+.scroll td{white-space:nowrap}
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.78rem;font-weight:700;border:1px solid}
+.badge.ok{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok-text)}
+.badge.err{background:var(--err-bg);border-color:var(--err-line);color:var(--err-text)}
+.badge.warn{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-text)}
+.badge.mute{background:#f1f5f9;border-color:var(--line);color:var(--muted)}
+.btn.small{padding:7px 12px;font-size:.9rem}
+a.btn{display:inline-block}
+.empty{padding:18px;color:var(--muted);text-align:center}
+.login-box{max-width:520px;margin:0 auto}

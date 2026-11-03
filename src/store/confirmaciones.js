@@ -36,8 +36,15 @@ export async function claimConfirmation(tokenId, numero) {
   return { state: 'CLAIMED' };
 }
 
-export async function markConfirmation(tokenId, status, { result, detail } = {}) {
+// Columns the admin panel reads; only these can be written through `fields`.
+const METRIC_COLUMNS = new Set([
+  'user_id', 'placa', 'solicitud_item', 'anticipo_modo', 'anticipo_valor', 'orden_cargue', 'remesa', 'manifiesto', 'transferencia',
+  'radicado', 'rndc_migrated', 'rndc_fecha_hora', 'rndc_checked_at', 'prepare_ms', 'save_ms', 'total_ms', 'error_code',
+]);
+
+export async function markConfirmation(tokenId, status, { result, detail, fields } = {}) {
   const patch = { status, updated_at: new Date().toISOString() };
+  for (const [k, v] of Object.entries(fields ?? {})) if (METRIC_COLUMNS.has(k)) patch[k] = v;
   if (result !== undefined) patch.result = result;
   if (detail !== undefined) patch.detail = String(detail).slice(0, 500);
   const { error } = await supabase().from(TABLE).update(patch).eq('token_id', tokenId);

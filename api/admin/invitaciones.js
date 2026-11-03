@@ -1,6 +1,6 @@
 // POST /api/admin/invitaciones { nombre } | { userId } — creates an app user (or re-invites one) and returns a
-// single-use link that expires in 2 hours. Protected by ADMIN_KEY (header x-api-key). The raw token is shown once.
-import { requireKey } from '../../src/http/auth.js';
+// single-use link that expires in 2 hours. Admin only (ADMIN_KEY header or admin cookie). The raw token is shown once.
+import { requireAdmin } from '../../src/http/admin.js';
 import { ApiError, sendError } from '../../src/http/errors.js';
 import { requireEnv } from '../../src/config.js';
 import { createUser, findUserByRef, createInvitation } from '../../src/store/usuarios.js';
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
       res.setHeader('allow', 'POST');
       return res.status(405).json({ ok: false, code: 'METHOD_NOT_ALLOWED', message: 'Use POST.' });
     }
-    requireKey(req, 'ADMIN_KEY');
+    requireAdmin(req);
     requireEnv('SUPABASE_URL', 'SUPABASE_SERVICE_KEY');
     const { nombre, userId } = req.body && typeof req.body === 'object' ? req.body : {};
 

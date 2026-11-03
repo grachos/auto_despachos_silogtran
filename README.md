@@ -42,7 +42,9 @@ curl -s -X POST -H "x-api-key: $API_KEY" -H "Content-Type: application/json" \
 | GET/POST | `/api/whatsapp/webhook` | webhook de WhatsApp Cloud API (verificación de Meta y mensajes; valida la firma) |
 | GET | `/api/vinculacion/estado` | (cookie de sesión) indica si el WhatsApp ya está vinculado |
 
-Pantallas: `/invitacion/<token>`, `/vincular`, `/manual` y `/privacidad` (públicas) y `/admin`.
+Pantallas: `/invitacion/<token>`, `/vincular`, `/manual` y `/privacidad` (públicas) y `/admin` (panel con login por `ADMIN_KEY`: resumen de desempeño, usuarios y estado de WhatsApp, reporte de despachos con radicado y tiempos, exportación CSV e invitaciones).
+
+Endpoints del panel (cookie de administrador o `x-api-key` = `ADMIN_KEY`): `POST /api/admin/login`, `GET /api/admin/usuarios`, `GET /api/admin/reporte`, `POST /api/admin/rndc-actualizar`, `POST /api/admin/invitaciones`.
 
 Siguientes pasos: webhook de WhatsApp, API por usuario e IA (ver roadmap en `CLAUDE.md`).
 

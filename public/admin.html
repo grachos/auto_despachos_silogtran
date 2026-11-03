@@ -1,24 +1,77 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex"><title>Administración · Despachos Silogtran</title><link rel="stylesheet" href="/styles.css"></head>
-<body><main>
-<h1>Administración</h1>
-<p class="muted">Crea un usuario y genera su link de acceso (un solo uso, vence a las 2 horas).</p>
-<form id="f" class="card" autocomplete="off">
-  <label for="k">Clave de administrador</label>
-  <input id="k" type="password" autocomplete="off" required>
-  <label for="n">Nombre del usuario nuevo</label>
-  <input id="n" type="text" maxlength="80" placeholder="Ej.: Ana Pérez">
-  <label for="i">…o un usuario existente: su ID o su usuario de Silogtran (para generar un link nuevo)</label>
-  <input id="i" type="text" placeholder="Ej.: grgomez (opcional)">
-  <div class="row"><button id="go" class="btn primary" type="submit">Generar link</button></div>
-  <div id="msg" class="msg hidden" role="status"></div>
-</form>
-<div id="result" class="card hidden">
-  <p><strong id="who"></strong></p>
-  <label for="link">Link de acceso (se muestra una sola vez)</label>
-  <input id="link" type="text" readonly>
-  <div class="row"><button id="copy" class="btn" type="button">Copiar link</button></div>
-  <p id="exp" class="muted"></p>
+<body><main class="panel">
+
+<div id="loginView" class="hidden">
+  <div class="login-box">
+    <h1>Administración</h1>
+    <p class="muted">Ingresa con tu clave de administrador.</p>
+    <form id="loginForm" class="card" autocomplete="off">
+      <label for="k">Clave de administrador</label>
+      <input id="k" type="password" autocomplete="off" required>
+      <div class="row"><button id="loginGo" class="btn primary" type="submit">Entrar</button></div>
+      <div id="loginMsg" class="msg hidden" role="status"></div>
+    </form>
+  </div>
 </div>
+
+<div id="appView" class="hidden">
+  <div class="topbar">
+    <div><h1>Panel de administración</h1><p class="muted">Usuarios, vinculación de WhatsApp y desempeño de los despachos.</p></div>
+    <button id="logout" class="btn small" type="button">Cerrar sesión</button>
+  </div>
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="resumen" type="button">Resumen</button>
+    <button class="tab" data-tab="usuarios" type="button">Usuarios</button>
+    <button class="tab" data-tab="despachos" type="button">Despachos</button>
+    <button class="tab" data-tab="invitaciones" type="button">Invitaciones</button>
+  </div>
+
+  <section id="tab-resumen">
+    <div class="filters"><div><label for="period">Periodo</label>
+      <select id="period"><option value="7">Últimos 7 días</option><option value="30" selected>Últimos 30 días</option><option value="90">Últimos 90 días</option></select></div></div>
+    <div id="kpis" class="kpis"></div>
+    <p class="muted">Los tiempos son los de la automatización (preparar el formulario y grabar), no el tiempo que tarda el Ministerio en migrar.</p>
+  </section>
+
+  <section id="tab-usuarios" class="hidden">
+    <div id="usersKpis" class="kpis"></div>
+    <div class="scroll"><table id="usersTable"></table></div>
+  </section>
+
+  <section id="tab-despachos" class="hidden">
+    <form id="dispForm" class="filters">
+      <div><label for="d1">Desde</label><input id="d1" type="date"></div>
+      <div><label for="d2">Hasta</label><input id="d2" type="date"></div>
+      <div><label for="du">Usuario</label><select id="du"><option value="">Todos</option><option value="cero">API (usuario cero)</option></select></div>
+      <div><label for="de">Estado</label><select id="de"><option value="">Todos</option><option value="DONE">Exitosos</option><option value="FAILED">Fallidos</option><option value="UNKNOWN">Inciertos</option></select></div>
+      <button class="btn primary small" type="submit">Buscar</button>
+      <a id="csv" class="btn small" href="#">Exportar CSV</a>
+      <button id="rndc" class="btn small" type="button">Actualizar radicados</button>
+    </form>
+    <div id="dispMsg" class="msg hidden" role="status"></div>
+    <div class="scroll"><table id="dispTable"></table></div>
+  </section>
+
+  <section id="tab-invitaciones" class="hidden">
+    <form id="invForm" class="card" autocomplete="off">
+      <p class="muted">Crea un usuario y genera su link de acceso (un solo uso, vence a las 2 horas).</p>
+      <label for="n">Nombre del usuario nuevo</label>
+      <input id="n" type="text" maxlength="80" placeholder="Ej.: Ana Pérez">
+      <label for="i">…o un usuario existente: su ID o su usuario de Silogtran (para generar un link nuevo)</label>
+      <input id="i" type="text" placeholder="Ej.: grgomez (opcional)">
+      <div class="row"><button id="invGo" class="btn primary" type="submit">Generar link</button></div>
+      <div id="invMsg" class="msg hidden" role="status"></div>
+    </form>
+    <div id="invResult" class="card hidden">
+      <p><strong id="who"></strong></p>
+      <label for="link">Link de acceso (se muestra una sola vez)</label>
+      <input id="link" type="text" readonly>
+      <div class="row"><button id="copy" class="btn" type="button">Copiar link</button></div>
+      <p id="exp" class="muted"></p>
+    </div>
+  </section>
+</div>
+
 </main><script src="/app.js"></script><script src="/admin.js"></script></body></html>

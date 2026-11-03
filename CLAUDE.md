@@ -132,5 +132,10 @@ Flujo deseado: el admin crea un usuario y se le asigna un **link de un solo uso 
 
 ## Pendientes tras M1-M3
 - Página `/eliminacion-de-datos` y paso de la app de Meta a modo *Live* (hoy en desarrollo: solo reciben mensajes los números con rol/prueba). Revisar el texto de `/privacidad` y añadir un contacto.
-- Limpiar usuarios de prueba en `app_users` (p. ej. un usuario "Graziany" en estado `PENDING` sin usar).
 - Siguiente incremento: **M4** (preparar/confirmar con la sesión y credenciales de cada usuario).
+
+## Panel de administración (`/admin`)
+- Acceso: `POST /api/admin/login { key }` canjea `ADMIN_KEY` por una cookie `adm` (HttpOnly, Secure, SameSite=Strict, Path=/api/admin, 8 h, token `typ:"admin"`); la clave no queda en el navegador. 10 fallos por IP en 15 min → bloqueo (`admin_intentos`). Los endpoints admin aceptan la cookie o `ADMIN_KEY` en `x-api-key`; las escrituras con cookie exigen `Origin` igual al host (`FORBIDDEN_ORIGIN`).
+- Endpoints: `GET /api/admin/usuarios` (estado, WhatsApp vinculado/desvinculado, teléfono enmascarado, nº de despachos, último despacho), `GET /api/admin/reporte?desde&hasta&usuario(id|cero)&estado(DONE|FAILED|UNKNOWN)[&format=csv]` (una fila por intento + KPIs; por defecto últimos 30 días; máx. 1000 filas; CSV con neutralización de fórmulas), `POST /api/admin/rndc-actualizar` (relee en Silogtran el estado del Ministerio de hasta 10 manifiestos sin radicado de los últimos 14 días y guarda radicado y fecha/hora), `POST /api/admin/invitaciones`, `POST /api/admin/logout`.
+- Pestañas: Resumen (éxito %, tiempo total promedio/p50/p90, preparar vs grabar, migrados al Ministerio), Usuarios, Despachos (filtros + exportar CSV + "Actualizar radicados"), Invitaciones. Todo dato del servidor se pinta con `textContent` (probado con una carga XSS).
+- Métricas (migración 006, columnas nuevas en `silog_confirmaciones`): `prepare_ms` (llenar el formulario), `save_ms` (Grabar), `total_ms` (reclamo → guardado; excluye la lectura del RNDC), documentos, `radicado`, `rndc_migrated`, `rndc_fecha_hora`, `placa`, `anticipo_modo/valor`, `error_code`, `user_id` (se llena desde M4; hoy `null` = "API (usuario cero)"). Los tiempos miden **la automatización**, no cuánto tarda el Ministerio en migrar. El despacho previo a la 006 se rellenó con `total_ms` aproximado (incluye la lectura del RNDC).
