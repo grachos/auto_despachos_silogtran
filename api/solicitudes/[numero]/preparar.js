@@ -5,7 +5,7 @@ import { requireApiKey } from '../../../src/http/auth.js';
 import { ApiError, sendError } from '../../../src/http/errors.js';
 import { requireConfig } from '../../../src/config.js';
 import { parsePreparar } from '../../../src/validation.js';
-import { signToken } from '../../../src/token.js';
+import { assertTokenSecret, signToken } from '../../../src/token.js';
 import { openSession } from '../../../src/silogtran/session.js';
 import { runPreparation } from '../../../src/silogtran/preparar.js';
 
@@ -17,6 +17,7 @@ export default async function handler(req, res) {
     }
     requireApiKey(req);
     requireConfig();
+    assertTokenSecret(); // fail before touching Silogtran
     const numero = String(req.query.numero || '').trim();
     if (!/^\d{4,20}$/.test(numero)) {
       throw new ApiError('INVALID_PARAMETER', 'El número de solicitud debe contener solo dígitos (4 a 20).', { status: 400 });

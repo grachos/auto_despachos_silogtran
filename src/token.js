@@ -7,6 +7,7 @@ const secret = () => {
   if (!s || s.length < 16) throw new ApiError('CONFIG_MISSING', 'Falta configurar TOKEN_SECRET (mínimo 16 caracteres) en el servidor.', { status: 500 });
   return s;
 };
+export const assertTokenSecret = () => void secret();
 const sign = (body) => createHmac('sha256', secret()).update(body).digest('base64url');
 
 export function signToken(payload, ttlSec = 900) {
