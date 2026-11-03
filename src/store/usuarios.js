@@ -14,6 +14,16 @@ export const MAX_ATTEMPTS = 5;
 export const INVITATION_TTL_MS = 2 * 60 * 60 * 1000;
 
 export const createUser = async (nombre) => (await run(supabase().from('app_users').insert({ nombre }).select('id, nombre').single()));
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Finds an existing user by internal id (uuid) or by Silogtran username (case-insensitive). Admin use.
+export async function findUserByRef(ref) {
+  const r = String(ref ?? '').trim();
+  if (!r) return null;
+  const q = supabase().from('app_users').select('id, nombre, silog_user, status');
+  return run(UUID_RE.test(r) ? q.eq('id', r).maybeSingle() : q.eq('silog_user_key', r.toLowerCase()).maybeSingle());
+}
+
 export const getUser = async (id) => (await run(supabase().from('app_users').select('id, nombre, silog_user, status').eq('id', id).maybeSingle()));
 
 export async function createInvitation(userId, tokenHash) {

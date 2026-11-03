@@ -3,7 +3,7 @@
 import { requireKey } from '../../src/http/auth.js';
 import { ApiError, sendError } from '../../src/http/errors.js';
 import { requireEnv } from '../../src/config.js';
-import { createUser, getUser, createInvitation } from '../../src/store/usuarios.js';
+import { createUser, findUserByRef, createInvitation } from '../../src/store/usuarios.js';
 import { hashToken, newRawToken } from '../../src/invitaciones.js';
 
 export default async function handler(req, res) {
@@ -18,8 +18,8 @@ export default async function handler(req, res) {
 
     let user;
     if (userId) {
-      user = await getUser(String(userId));
-      if (!user) throw new ApiError('USER_NOT_FOUND', 'No existe ese usuario.', { status: 404 });
+      user = await findUserByRef(userId);
+      if (!user) throw new ApiError('USER_NOT_FOUND', 'No existe ese usuario. Escribe su ID o su usuario de Silogtran.', { status: 404 });
     } else {
       const n = String(nombre ?? '').trim();
       if (!n || n.length > 80) throw new ApiError('INVALID_PARAMETER', 'Falta el nombre del usuario (máximo 80 caracteres).', { status: 400 });

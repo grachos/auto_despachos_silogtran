@@ -11,7 +11,7 @@ $('f').addEventListener('submit', async (e) => {
       body: JSON.stringify(payload),
     });
     const b = await res.json().catch(() => ({}));
-    if (!res.ok || !b.ok) { showMsg($('msg'), 'err', b.message || 'No se pudo generar el link.'); return; }
+    if (!res.ok || !b.ok) { showMsg($('msg'), 'err', (b.message || 'No se pudo generar el link.') + (b.code ? ` (${b.code})` : '')); return; }
     $('who').textContent = `Usuario: ${b.usuario.nombre} (ID ${b.usuario.id})`;
     $('link').value = b.invitacion.link;
     $('exp').textContent = `Vence: ${new Date(b.invitacion.expiraEn).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })}`;
