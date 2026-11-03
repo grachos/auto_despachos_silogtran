@@ -13,7 +13,8 @@ export function parseSaveResult(html) {
   if (!norm(text).includes('el registro ha sido guardado')) {
     text = $('[id*="ensaje"]').toArray().map((el) => $(el).text()).find((t) => norm(t).includes('el registro ha sido guardado')) ?? text;
   }
-  const lines = text.split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  // Drop empty and repeated lines (the message box can repeat the raw Monitor response).
+  const lines = [...new Set(text.split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean))];
   const saved = lines.some((l) => norm(l).includes('el registro ha sido guardado'));
   const rest = lines.filter((l) => !norm(l).includes('el registro ha sido guardado')).join(' ');
 
