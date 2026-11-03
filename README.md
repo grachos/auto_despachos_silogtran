@@ -32,10 +32,18 @@ curl -s -X POST -H "x-api-key: $API_KEY" -H "Content-Type: application/json" \
 - Si el resultado del guardado es dudoso queda `UNKNOWN` y **no se reintenta solo**: verificar en Silogtran y usar un token nuevo.
 - `ANTICIPO_CHANGED` si el anticipo recalculado difiere del que se vio en `preparar`.
 
+## Multiusuario (en construcción)
+| Método | Ruta | Qué hace |
+|---|---|---|
+| POST | `/api/admin/invitaciones` | (`ADMIN_KEY`) crea un usuario y un link de un solo uso que vence a las 2 h |
+| POST | `/api/invitaciones/:token/login` | la persona prueba su usuario y contraseña de Silogtran; se guardan cifrados y se abre sesión web |
+
+Siguientes pasos: pantallas web, vinculación de WhatsApp, API por usuario e IA (ver roadmap en `CLAUDE.md`).
+
 ## Variables de entorno
 Ver [`.env.example`](./.env.example) (sin valores). En Vercel, marcarlas para **Production** (y Preview si se prueba ahí) y volver a desplegar tras cambiarlas.
 
-`SILOG_BASE_URL`, `SILOG_USER`, `SILOG_PASSWORD`, `API_KEY`, `TOKEN_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (clave `service_role`/secret, nunca la `anon`/publishable).
+`SILOG_BASE_URL`, `SILOG_USER`, `SILOG_PASSWORD`, `API_KEY`, `TOKEN_SECRET`, `ENCRYPTION_KEY`, `ADMIN_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (clave `service_role`/secret, nunca la `anon`/publishable).
 
 ## Estructura
 ```

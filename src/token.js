@@ -10,18 +10,19 @@ const secret = () => {
 export const assertTokenSecret = () => void secret();
 const sign = (body) => createHmac('sha256', secret()).update(body).digest('base64url');
 
-export function signToken(payload, ttlSec = 900) {
-  const body = Buffer.from(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + ttlSec })).toString('base64url');
+export function signToken(payload, ttlSec = 900, typ = 'preparar') {
+  const body = Buffer.from(JSON.stringify({ ...payload, typ, exp: Math.floor(Date.now() / 1000) + ttlSec })).toString('base64url');
   return `${body}.${sign(body)}`;
 }
 
-export function verifyToken(token) {
+export function verifyToken(token, typ = 'preparar') {
   const [body, sig] = String(token || '').split('.');
   const expected = body ? sign(body) : '';
   if (!body || !sig || sig.length !== expected.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
     throw new ApiError('TOKEN_INVALID', 'El token es inválido; vuelve a ejecutar preparar.', { status: 400 });
   }
   const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
+  if (payload.typ !== typ) throw new ApiError('TOKEN_INVALID', 'El token no es válido para esta operación.', { status: 400 });
   if (payload.exp < Math.floor(Date.now() / 1000)) {
     throw new ApiError('TOKEN_EXPIRED', 'El token expiró; vuelve a ejecutar preparar.', { status: 410 });
   }

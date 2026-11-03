@@ -2,9 +2,12 @@
 import { timingSafeEqual } from 'node:crypto';
 import { ApiError } from './errors.js';
 
-export function requireApiKey(req) {
-  const expected = process.env.API_KEY;
-  if (!expected) throw new ApiError('CONFIG_MISSING', 'Falta configurar API_KEY en el servidor.', { status: 500 });
+export const requireApiKey = (req) => requireKey(req, 'API_KEY');
+
+// Constant-time check of the x-api-key header against the secret in env var `envName`.
+export function requireKey(req, envName) {
+  const expected = process.env[envName];
+  if (!expected) throw new ApiError('CONFIG_MISSING', `Falta configurar ${envName} en el servidor.`, { status: 500 });
   const given = Buffer.from(String(req.headers['x-api-key'] || ''));
   const want = Buffer.from(expected);
   if (given.length !== want.length || !timingSafeEqual(given, want)) {
