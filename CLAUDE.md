@@ -96,9 +96,9 @@ Códigos de error conocidos: `VEHICLE_NOT_ACTIVE`, `AMBIGUOUS_OPTION`, `ROUTE_NO
 
 ## Roadmap multiusuario por incrementos (cada uno requiere aprobación)
 Flujo deseado: el admin crea un usuario y se le asigna un **link de un solo uso que vence a las 2 horas**; la persona entra con su usuario y contraseña de Silogtran; si el login es efectivo, aparece "Vincular teléfono" con un código (`VINCULAR 123456`, vence en 10 min) y un botón "Abrir WhatsApp"; ya vinculada, chatea con la IA (recibe el link al manual público) y la IA indica qué datos faltan.
-- **M1 (HECHO, falta probar con Silogtran real)** Usuarios + credenciales cifradas (AES-256-GCM, `ENCRYPTION_KEY`) + invitaciones (token solo como hash, un uso, 2 h) + `POST /api/admin/invitaciones` (`ADMIN_KEY`) + `POST /api/invitaciones/:token/login` (login real en Silogtran, máx. 5 intentos por invitación, cookie de sesión corta). Sin pantallas.
-- **M2 (HECHO; falta probar en producción)** Pantallas web: login por link, "Vincular teléfono" (código + abrir WhatsApp + "Ya lo envié"), manual público, admin mínimo.
-- **M3 (HECHO; falta probar con Meta real)** Webhook de WhatsApp Business (Meta): verificación de firma, `VINCULAR <código>`, `AYUDA`, `DESVINCULAR`, bienvenida con link al manual.
+- **M1 (HECHO y PROBADO con Silogtran real, 2026-11-03)** Usuarios + credenciales cifradas (AES-256-GCM, `ENCRYPTION_KEY`) + invitaciones (token solo como hash, un uso, 2 h) + `POST /api/admin/invitaciones` (`ADMIN_KEY`) + `POST /api/invitaciones/:token/login` (login real en Silogtran, máx. 5 intentos por invitación, cookie de sesión corta). Sin pantallas.
+- **M2 (HECHO y PROBADO en producción, 2026-11-03)** Pantallas web: login por link, "Vincular teléfono" (código + abrir WhatsApp + "Ya lo envié"), manual público, admin mínimo.
+- **M3 (HECHO y PROBADO con Meta real, 2026-11-03: vinculación por WhatsApp de punta a punta)** Webhook de WhatsApp Business (Meta): verificación de firma, `VINCULAR <código>`, `AYUDA`, `DESVINCULAR`, bienvenida con link al manual.
 - **M4** `preparar`/`confirmar` por usuario (sesión y credenciales propias, token ligado al usuario, lock por usuario+solicitud).
 - **M5** IA conversacional (Claude, `ANTHROPIC_API_KEY`): herramientas consultar/preparar y `confirmar` solo tras confirmación explícita; avisa qué datos faltan; conversación en Supabase.
 - **M6** Tablas con varios despachos por WhatsApp (lotes en cola, resultados por mensaje).
@@ -129,3 +129,8 @@ Flujo deseado: el admin crea un usuario y se le asigna un **link de un solo uso 
 - Migración 005 (`whatsapp_mensajes`, `whatsapp_intentos`). Página pública `/privacidad` (URL de política exigida por Meta para pasar la app a *Live*; **revisar el texto y añadir un contacto**).
 - Variables: `WHATSAPP_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_PHONE_ID`, `WHATSAPP_NUMBER` (bot: 573246407597).
 - Riesgo conocido: el cuerpo crudo depende de que el runtime de Vercel no lo haya consumido; si la primera firma real falla con cuerpo correcto, revisar logs (`[whatsapp] invalid signature`).
+
+## Pendientes tras M1-M3
+- Página `/eliminacion-de-datos` y paso de la app de Meta a modo *Live* (hoy en desarrollo: solo reciben mensajes los números con rol/prueba). Revisar el texto de `/privacidad` y añadir un contacto.
+- Limpiar usuarios de prueba en `app_users` (p. ej. un usuario "Graziany" en estado `PENDING` sin usar).
+- Siguiente incremento: **M4** (preparar/confirmar con la sesión y credenciales de cada usuario).
