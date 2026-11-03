@@ -1,5 +1,7 @@
 // Browser session cookie for the web pages: a signed, short-lived token (typ "session") in an HttpOnly cookie.
 import { signToken, verifyToken } from '../token.js';
+import { ApiError } from './errors.js';
+import { getUser } from '../store/usuarios.js';
 
 const NAME = 'sid';
 const TTL_SEC = 30 * 60;
@@ -18,4 +20,14 @@ export function readSession(req) {
   } catch {
     return null;
   }
+}
+
+// Requires a valid session cookie for an ACTIVE user; returns the user row.
+export async function requireSession(req) {
+  const uid = readSession(req);
+  const user = uid ? await getUser(uid) : null;
+  if (!user || user.status !== 'ACTIVE') {
+    throw new ApiError('SESSION_REQUIRED', 'Tu sesión venció o no existe; entra de nuevo con tu link de invitación.', { status: 401 });
+  }
+  return user;
 }

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manual de despachos · Despachos Silogtran</title><link rel="stylesheet" href="/styles.css"></head>
+<body><main class="wide">
+<h1>Manual de despachos por WhatsApp</h1>
+<p class="muted">Cómo despachar una solicitud de transporte conversando con el asistente.</p>
+
+<div class="card">
+<h2 class="first">Cómo funciona</h2>
+<ol>
+<li>Escribes al asistente por WhatsApp, con tus palabras, qué solicitud quieres despachar y con qué vehículo.</li>
+<li>El asistente te pregunta lo que falte y te avisa si hay algo que no puede omitir.</li>
+<li>Antes de grabar te muestra un <b>resumen</b> (vehículo, conductor, ruta, fechas y anticipo) y te pide confirmación.</li>
+<li>Cuando confirmas, el despacho se graba en Silogtran y recibes la <b>remesa</b>, el <b>manifiesto</b> y el estado frente al Ministerio.</li>
+</ol>
+<p class="muted">Nada se graba sin tu confirmación explícita.</p>
+</div>
+
+<h2>Qué datos necesita</h2>
+<table>
+<tr><th>Dato</th><th>¿Obligatorio?</th><th>Detalle</th></tr>
+<tr><td>Número de solicitud</td><td>Sí</td><td>Solo dígitos, por ejemplo <code>0101072807</code>.</td></tr>
+<tr><td>Placa del vehículo</td><td>Sí</td><td>Debe estar activa en Silogtran. Si no lo está, el asistente te lo dirá.</td></tr>
+<tr><td>Cita de cargue</td><td>Sí</td><td>Fecha y hora. Ejemplo: <code>8 de noviembre 2:00 pm</code>.</td></tr>
+<tr><td>Cita de descargue</td><td>Sí</td><td>Fecha y hora.</td></tr>
+<tr><td>Contenedor y BL</td><td>Solo si la solicitud lleva contenedor</td><td>Número del contenedor y número de BL. El asistente consulta la solicitud y te avisa si los necesita.</td></tr>
+<tr><td>Tipo de manifiesto</td><td>No</td><td>Si no lo indicas: <b>municipal o urbano</b> cuando el origen y el destino son la misma ciudad, y <b>general</b> en los demás casos.</td></tr>
+<tr><td>Orden de compra</td><td>No</td><td>Si no la indicas, se registra "NA".</td></tr>
+<tr><td>Observaciones de la orden de cargue y de la remesa</td><td>No</td><td>Si no las indicas, se registra "NA".</td></tr>
+<tr><td>Anticipo</td><td>Sí, al confirmar</td><td><b>Total</b> (el valor que calcula Silogtran para la ruta) o <b>cero</b>.</td></tr>
+</table>
+
+<h2>Tipos de manifiesto</h2>
+<table>
+<tr><th>Código</th><th>Nombre</th></tr>
+<tr><td>1</td><td>Manifiesto general</td></tr>
+<tr><td>2</td><td>Varios viajes en el día</td></tr>
+<tr><td>3</td><td>Multiparada</td></tr>
+<tr><td>4</td><td>Ida y regreso</td></tr>
+<tr><td>5</td><td>Viaje vacío</td></tr>
+<tr><td>6</td><td>Viaje municipal o urbano</td></tr>
+<tr><td>7</td><td>Varios viajes municipales en el día</td></tr>
+</table>
+<p class="muted">Puedes pedirlo por código o por nombre, por ejemplo "manifiesto de ida y regreso".</p>
+
+<h2>Ejemplo de conversación</h2>
+<div class="card">
+<div class="bubble u">Quiero despachar la solicitud 0101072807 con la placa KNL058</div>
+<div class="bubble b">Perfecto. Para la solicitud 0101072807 (Santa Marta → Santa Marta, con contenedor) me falta: cita de cargue, cita de descargue, número de contenedor y BL.</div>
+<div class="bubble u">Cargue el 8 de noviembre a las 2 pm, descargue el 10 a las 4 pm. Contenedor WHSU545823-0, BL ABC123</div>
+<div class="bubble b">Resumen: vehículo KNL058 · conductor Edwin Jiménez · ruta Santa Marta – Santa Marta · manifiesto municipal · anticipo sugerido $12.896. ¿Lo confirmo con anticipo total o cero?</div>
+<div class="bubble u">Total, confírmalo</div>
+<div class="bubble b">Se despachó a satisfacción. Remesa 0101227136, Manifiesto 0101226140. Sin migrar al Ministerio.</div>
+</div>
+
+<h2>Varios despachos a la vez</h2>
+<p>También puedes enviar una tabla con varios despachos (una fila por solicitud, con placa, citas y los demás datos). El asistente la interpreta, te muestra qué entendió y qué falta, y espera tu confirmación antes de grabar.</p>
+
+<h2>Comandos útiles</h2>
+<table>
+<tr><th>Escribe</th><th>Qué hace</th></tr>
+<tr><td><kbd>AYUDA</kbd></td><td>Te recuerda cómo usar el asistente.</td></tr>
+<tr><td><kbd>DESVINCULAR</kbd></td><td>Desvincula tu número de WhatsApp de tu cuenta.</td></tr>
+</table>
+
+<h2>Cosas a tener en cuenta</h2>
+<ul>
+<li>Las <b>citas de cargue y descargue siempre son obligatorias</b>; el asistente no las inventa.</li>
+<li>El resumen que recibes antes de confirmar vale <b>15 minutos</b>. Si tardas más, el asistente vuelve a prepararlo.</li>
+<li>Si el anticipo cambia entre el resumen y la confirmación, el asistente te avisa y te pide confirmar de nuevo.</li>
+<li>Si Silogtran no responde con claridad al grabar, el asistente <b>no reintenta solo</b>: te pedirá verificar en Silogtran antes de repetir, para evitar despachos duplicados.</li>
+<li>Una solicitud se procesa de a una vez.</li>
+<li>El estado frente al Ministerio puede aparecer como "Sin migrar" justo después de grabar; la migración puede tardar.</li>
+</ul>
+
+<h2>Tu privacidad</h2>
+<p>Tu usuario y contraseña de Silogtran se guardan <b>cifrados</b> y solo se usan para despachar en tu nombre. Cada persona ve únicamente sus propios despachos.</p>
+<footer>¿Dudas? Escribe <b>AYUDA</b> al asistente por WhatsApp.</footer>
+</main></body></html>

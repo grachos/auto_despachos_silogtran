@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>Administración · Despachos Silogtran</title><link rel="stylesheet" href="/styles.css"></head>
+<body><main>
+<h1>Administración</h1>
+<p class="muted">Crea un usuario y genera su link de acceso (un solo uso, vence a las 2 horas).</p>
+<form id="f" class="card" autocomplete="off">
+  <label for="k">Clave de administrador</label>
+  <input id="k" type="password" autocomplete="off" required>
+  <label for="n">Nombre del usuario nuevo</label>
+  <input id="n" type="text" maxlength="80" placeholder="Ej.: Ana Pérez">
+  <label for="i">…o ID de un usuario existente (para generar un link nuevo)</label>
+  <input id="i" type="text" placeholder="Opcional">
+  <div class="row"><button id="go" class="btn primary" type="submit">Generar link</button></div>
+  <div id="msg" class="msg hidden" role="status"></div>
+</form>
+<div id="result" class="card hidden">
+  <p><strong id="who"></strong></p>
+  <label for="link">Link de acceso (se muestra una sola vez)</label>
+  <input id="link" type="text" readonly>
+  <div class="row"><button id="copy" class="btn" type="button">Copiar link</button></div>
+  <p id="exp" class="muted"></p>
+</div>
+</main><script src="/app.js"></script><script src="/admin.js"></script></body></html>

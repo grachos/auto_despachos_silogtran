@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>Vincular WhatsApp · Despachos Silogtran</title><link rel="stylesheet" href="/styles.css"></head>
+<body><main>
+<h1>WhatsApp</h1>
+<p id="intro" class="muted">Vincula tu número para despachar por WhatsApp.</p>
+
+<div id="linked" class="msg ok hidden">
+  <div>✅ Tu WhatsApp <strong id="phone"></strong> está vinculado desde <span id="since"></span>.</div>
+  <p class="muted">Ya puedes escribirle al bot: <strong class="botnum"></strong>. Por WhatsApp puedes escribir <b>AYUDA</b> o <b>DESVINCULAR</b>. <a href="/manual">Ver el manual</a>.</p>
+</div>
+
+<div id="start" class="card hidden">
+  <p>Te daremos un código para enviar por WhatsApp. Dura 10 minutos.</p>
+  <div class="row"><button id="gen" class="btn primary" type="button">Vincular teléfono</button></div>
+</div>
+
+<div id="codebox" class="card hidden">
+  <p>Envía este mensaje por WhatsApp<span id="tonum"></span>:</p>
+  <div id="code" class="code"></div>
+  <p id="left" class="muted"></p>
+  <div class="row">
+    <a id="open" class="btn primary hidden" href="#" target="_blank" rel="noopener">Abrir WhatsApp</a>
+    <button id="sent" class="btn" type="button">Ya lo envié</button>
+    <button id="again" class="btn" type="button">Generar otro código</button>
+  </div>
+</div>
+
+<div id="msg" class="msg hidden" role="status"></div>
+<footer>Por WhatsApp puedes escribir <b>AYUDA</b> o <b>DESVINCULAR</b>. <a href="/manual">Manual de despachos</a>.</footer>
+</main><script src="/app.js"></script><script src="/vincular.js"></script></body></html>
