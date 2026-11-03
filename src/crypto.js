@@ -5,9 +5,11 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { ApiError } from './http/errors.js';
 
 function key() {
-  const hex = process.env.ENCRYPTION_KEY || '';
+  const raw = process.env.ENCRYPTION_KEY;
+  if (!raw) throw new ApiError('CONFIG_MISSING', 'Falta configurar ENCRYPTION_KEY en el servidor.', { status: 500 });
+  const hex = raw.trim(); // tolerate a trailing space/newline pasted with the value
   if (!/^[0-9a-fA-F]{64}$/.test(hex)) {
-    throw new ApiError('CONFIG_MISSING', 'Falta configurar ENCRYPTION_KEY (64 caracteres hexadecimales) en el servidor.', { status: 500 });
+    throw new ApiError('CONFIG_INVALID', `ENCRYPTION_KEY está configurada pero no es válida: debe tener exactamente 64 caracteres hexadecimales (tiene ${hex.length}). Genera una con openssl rand -hex 32.`, { status: 500 });
   }
   return Buffer.from(hex, 'hex');
 }
