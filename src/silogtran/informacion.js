@@ -107,9 +107,13 @@ export function selectOptions(form, name) {
     .filter((o) => o.value !== '');
 }
 
-function setManifestType(form, input) {
+// Business rule: same origin and destination city -> 6 (VIAJE MUNICIPAL O URBANO), otherwise 1 (MANIFIESTO GENERAL).
+// Only a default: an explicit tipoManifiesto always wins.
+export const defaultManifestType = (origen, destino) => (norm(origen) === norm(destino) ? '6' : '1');
+
+function setManifestType(form, input, defaultCode) {
   const name = need(form, `${P}tipmanrndc_codigo`);
-  const opt = resolveOption(selectOptions(form, name), input ?? '1', 'el tipo de manifiesto');
+  const opt = resolveOption(selectOptions(form, name), input ?? defaultCode, 'el tipo de manifiesto');
   form.fields[name] = opt.value;
   return { codigo: opt.value, nombre: opt.text };
 }
@@ -118,6 +122,6 @@ export async function fillInformacion(form, { placa, origen, destino, tipoManifi
   const vehiculo = await selectVehicle(form, placa); // must come before the route (anticipo depends on it)
   const ruta = await selectRoute(form, origen, destino);
   const fechas = await setDatesAndVolume(form, now);
-  const tipo = setManifestType(form, tipoManifiesto);
+  const tipo = setManifestType(form, tipoManifiesto, defaultManifestType(origen, destino));
   return { vehiculo, ruta, fechas, tipoManifiesto: tipo };
 }
