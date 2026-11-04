@@ -85,6 +85,7 @@ export function chooseExternal(resumen, args) {
 export function makeExecutors({ userId, send, services = { consultSolicitud, prepareDispatch, createPending } }) {
   return {
     async consultar_solicitud(args) {
+      await send('⏳ Consultando la solicitud en Silogtran…');
       const s = await services.consultSolicitud(userId, args.numero);
       return {
         result: {
