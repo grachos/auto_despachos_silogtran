@@ -185,3 +185,8 @@ Flujo deseado: el admin crea un usuario y se le asigna un **link de un solo uso 
 
 ## Diagnóstico de vehículo (2026-11-04)
 - `POST /api/admin/diag-vehiculo { numero, placa, usuario, item? }` (admin; solo lectura): carga la misma placa por «Vehículos Activos» y por «Empresas» en formularios nuevos y compara qué controles quedan llenos y cuáles enviaría un navegador (`filled`/`sent`/`disabled`). Devuelve solo ids y banderas, **nunca valores**; limpia el pendiente y no graba. Creado para entender el `SAVE_REJECTED` («error al grabar… código 8931x») al despachar por Empresas. Código: `src/silogtran/diagnostico.js`.
+
+## Tipo de operación y pestaña Empresas (2026-11-04)
+- Causa del `SAVE_REJECTED` («error al grabar… código 8931x») al despachar KSK198 por **Empresas**: `tipo_operacion` quedaba en «SELECCIONE UNO» (por «Vehículos Activos» Silogtran lo autoselecciona: TERCEROS para externos; por Empresas no). Evidencia: `ia_pendientes.resumen.tipoOperacion` = TERCEROS en el despacho que grabó y «SELECCIONE UNO» en los dos que fallaron.
+- `ensureTipoOperacion` (`src/silogtran/informacion.js`) se ejecuta al final del llenado: si Silogtran ya eligió uno, no lo toca; si está vacío y el vehículo es EXTERNO, pone TERCEROS (+ callback `change` si existe); en cualquier otro caso **no adivina** y falla antes de grabar con `OPERATION_TYPE_MISSING` (409) y la lista de opciones. `preparar` informa el `tipoOperacion` final. **Sin verificar aún contra Silogtran real.**
+- Nota del mapeo manual (bug de Empresas): «Aceptar» antes de marcar Manifiesto descarta el vehículo en silencio. Nuestro flujo ya marca Manifiesto antes (`startDispatch`) y verifica `vehiculo_codigo` tras Aceptar; no era la causa.
