@@ -93,7 +93,8 @@ const nrm = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, 
 // (the model reused «0 a conductor» from an earlier dispatch of the same plate). Checked against the message text itself.
 export function statedInMessage(userText, { rol, anticipo, max }) {
   const t = nrm(userText);
-  const roleOk = rol === 'conductor' ? /conductor/.test(t) : /poseedor|propietario|dueno/.test(t);
+  // Prefixes tolerate short/typo forms («posee», «conduc», «propie») and common synonyms.
+  const roleOk = rol === 'conductor' ? /\b(cond\w*|chofer|chofe\w*)/.test(t) : /\b(pose\w*|propie\w*|duen\w*)/.test(t);
   let valueOk = false;
   if (anticipo === 0) valueOk = /(^|[^\d])0([^\d]|$)|cero|sin anticipo|ningun|nada/.test(t);
   else {

@@ -107,9 +107,13 @@ export function createFlow(d0) {
   async function turn(phone, link, text) {
     const uid = link.userId;
     const history = await d.ia.recentHistory(uid);
+    // A bare "sí" answering the assistant's own confirmation question («¿0 pesos para el poseedor?») confirms the values
+    // written in that question: the external-vehicle check then reads that question too.
+    const lastBot = [...history].reverse().find((m) => m.role === 'assistant')?.content ?? '';
+    const statedText = isBareConfirm(text) && lastBot ? `${lastBot}\n${text}` : text;
     const out = await runAgentTurn(
       { nombre: link.nombre, text, history, now: d.now() },
-      { chat: d.chat, executors: makeExecutors({ userId: uid, send: (t) => d.send(phone, t), userText: text, services: d.services }) },
+      { chat: d.chat, executors: makeExecutors({ userId: uid, send: (t) => d.send(phone, t), userText: statedText, services: d.services }) },
     );
     await d.ia.addMessage(uid, 'user', text);
     if (out.kind === 'pending') {
