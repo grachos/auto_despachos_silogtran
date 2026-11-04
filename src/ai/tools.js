@@ -82,6 +82,14 @@ export function chooseExternal(resumen, args) {
   return { eleccion: { beneficiario: { id: ben.id, rol: ben.rol, texto: ben.texto }, anticipo: args.anticipo } };
 }
 
+// Deterministic next-step hint for the model after a lookup (it tended to ask "¿quieres despacharla en ese ítem?").
+export function nextStep(s) {
+  const open = s.items.filter((i) => i.pendientes > 0);
+  if (!open.length) return 'La solicitud está AGOTADA: avisa que ya no tiene vehículos por despachar y no sigas.';
+  if (open.length === 1) return `Hay un solo ítem con cupos (ítem ${open[0].item}): úsalo. Si ya tienes placa y las dos citas, llama AHORA a preparar_despacho con item ${open[0].item}. NO preguntes si quiere despachar ni en qué ítem.`;
+  return 'Hay varios ítems con cupos: pregunta SOLO cuál ítem, salvo que la persona ya lo haya indicado.';
+}
+
 // Executors bound to the actor (the person linked to this phone). The actor is never a model-controlled argument.
 export function makeExecutors({ userId, send, services = { consultSolicitud, prepareDispatch, createPending } }) {
   return {
@@ -92,6 +100,7 @@ export function makeExecutors({ userId, send, services = { consultSolicitud, pre
         result: {
           ok: true, numero: s.numero, requiereContenedor: s.requiereContenedor,
           despachable: s.items.some((i) => i.pendientes > 0),
+          siguiente: nextStep(s),
           nota: 'vehiculosPorDespachar es solo una CANTIDAD de cupos libres, no una lista de vehículos entre los que elegir.',
           items: s.items.map((i) => ({ item: i.item, origen: trunc(i.origen, 60), destino: trunc(i.destino, 60), producto: trunc(i.producto, 60), vehiculosPorDespachar: i.pendientes, despachable: i.pendientes > 0 })),
         },

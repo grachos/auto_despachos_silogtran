@@ -193,3 +193,4 @@ Flujo deseado: el admin crea un usuario y se le asigna un **link de un solo uso 
 
 ## Guardia contra respuestas inventadas (2026-11-04)
 - Si el mensaje trae un número de solicitud (≥6 dígitos) y el modelo responde sin llamar ninguna herramienta, `runAgentTurn` repite la llamada **forzando solo `consultar_solicitud`** (solo lectura; nunca `preparar_despacho`, para que no invente argumentos). Motivo: el modelo afirmó «ya no tiene vehículos por despachar» sin consultar (turno de 3 s; la solicitud estaba 2/0). El ejemplo «2 de 2» del prompt también se quitó (el modelo lo repetía).
+- `consultar_solicitud` devuelve además `siguiente` (`nextStep` en `src/ai/tools.js`): texto determinista que le dice al modelo qué hacer tras consultar (un solo ítem con cupos → llamar ya a `preparar_despacho` con ese ítem, sin preguntar; agotada → solo avisar; varios ítems → preguntar solo cuál). Evita el «¿quieres despachar la placa X en ese ítem?».
