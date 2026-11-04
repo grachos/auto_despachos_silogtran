@@ -1,6 +1,7 @@
 // Read-only diagnostic: loads the SAME plate through "Vehículos Activos" and through the "Empresas" tab on fresh dispatch
 // forms and compares which form controls end up filled (and which of them a browser would actually submit).
 // Only control ids and flags are reported, NEVER values. Nothing is saved; the pending item is always cleared.
+import * as cheerio from 'cheerio';
 import { ApiError } from '../http/errors.js';
 import { buscarSolicitud } from './solicitud.js';
 import { clearPending, pickItem, startDispatch } from './despacho.js';
@@ -35,7 +36,22 @@ export function diffControls(a, b) {
 
 const KEY_IDS = ['ctl0_MainModule_fieldHdVehEmpresaID', 'ctl0_MainModule_enturnamiento_codigo', 'ctl0_MainModule_confirmado_por', 'ctl0_MainModule_tipo_operacion', 'ctl0_MainModule_vehiculo_codigo', 'ctl0_MainModule_tercero_codigo_conductor'];
 
-export async function diagnoseVehicle(client, numero, { placa, item, completo = false }) {
+// Page CODE around the vehicle-source tabs (markup + scripts mentioning empresa/confirmado/tab), to find what the browser
+// changes when the person clicks "Empresas". Values of inputs are stripped; this is page structure, not personal data.
+export function tabHints(html) {
+  const $ = cheerio.load(String(html ?? ''));
+  const strip = (h) => String(h).replace(/\svalue="[^"]*"/gi, ' value="…"').replace(/\s+/g, ' ').slice(0, 1500);
+  const tabs = $('a, li, td, span, div, input[type=button], input[type=submit], button').toArray()
+    .filter((el) => /^(veh[ií]culos activos|empresas)$/i.test($(el).text().trim()) || /^(veh[ií]culos activos|empresas)$/i.test(String(el.attribs.value ?? '').trim()))
+    .slice(0, 6).map((el) => strip($.html($(el).parent())));
+  const scripts = $('script').toArray().map((el) => $(el).html() ?? '')
+    .flatMap((js) => [...js.matchAll(/[^;{}\n]{0,250}(empresa|confirmado|activo|tab)[^;{}\n]{0,250}/gi)].map((m) => m[0].trim()))
+    .filter((x, i, a) => a.indexOf(x) === i).slice(0, 40).map((x) => x.slice(0, 400));
+  const hidden = $('input[type=hidden]').toArray().map((el) => `${el.attribs.id || el.attribs.name}${String(el.attribs.value ?? '').trim() ? ' (lleno)' : ''}`).filter((x) => !/PRADO_/.test(x));
+  return { tabs, scripts, hidden };
+}
+
+export async function diagnoseVehicle(client, numero, { placa, item, completo = false, codigo = false }) {
   const solicitud = await buscarSolicitud(client, numero);
   const chosen = pickItem(solicitud, item ?? null);
   const run = async (fuente) => {
@@ -43,6 +59,7 @@ export async function diagnoseVehicle(client, numero, { placa, item, completo = 
       return await client.enqueue(async () => {
         const d = await startDispatch(client, { numero, item: chosen.item, fechaCreacion: solicitud.fechaCreacion });
         const form = new PradoPage(client, d.page);
+        if (codigo) return { ok: true, codigo: tabHints(form.html) };
         if (completo) {
           // Full "Información Despacho" fill (vehicle, route, dates, manifest type, tipo_operacion, confirmado_por) WITHOUT
           // observaciones/anticipo/save, to see which hidden fields survive the later callbacks.
@@ -60,6 +77,7 @@ export async function diagnoseVehicle(client, numero, { placa, item, completo = 
       await client.enqueue(() => clearPending(client)).catch(() => {});
     }
   };
+  if (codigo) return { ok: true, solicitud: numero, ...(await run('activos')) };
   const activos = await run('activos');
   const empresas = await run('empresas');
   if (!activos.ok && !empresas.ok) throw new ApiError('DIAG_NO_DATA', 'La placa no cargó por ninguna de las dos fuentes.', { status: 404, extra: { activos, empresas } });

@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     await assertActorActive(userId);
     const out = await withLock(sessionKey(userId), async () => {
       const { client } = await openActorSession(userId);
-      return diagnoseVehicle(client, numero, { placa, item, completo: req.body?.completo === true });
+      return diagnoseVehicle(client, numero, { placa, item, completo: req.body?.completo === true, codigo: req.body?.codigo === true });
     });
     res.status(200).json(out);
   } catch (e) {
