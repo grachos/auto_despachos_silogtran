@@ -28,7 +28,7 @@ export const TOOLS = [
       strict: true,
       parameters: {
         type: 'object', additionalProperties: false,
-        required: ['numero', 'item', 'placa', 'citaCargue', 'citaDescargue', 'tipoManifiesto', 'ordenCompra', 'observacionOrdenCargue', 'observacionRemesa', 'contenedor', 'bl'],
+        required: ['numero', 'item', 'placa', 'citaCargue', 'citaDescargue', 'tipoManifiesto', 'ordenCompra', 'observacionOrdenCargue', 'observacionRemesa', 'contenedor', 'bl', 'beneficiario', 'anticipo'],
         properties: {
           numero: str('Número de la solicitud, solo dígitos'),
           item: { type: ['integer', 'null'], description: 'Ítem de la solicitud; null si solo hay uno' },
@@ -41,6 +41,8 @@ export const TOOLS = [
           observacionRemesa: optStr('Observación de la remesa; null si no la dieron'),
           contenedor: optStr('Número de contenedor; null si no aplica'),
           bl: optStr('Número de BL; null si no aplica'),
+          beneficiario: optStr('Solo vehículos externos: "conductor" o "poseedor" (a quién va el anticipo). null si no lo han dicho o no sabes si el vehículo es externo'),
+          anticipo: { type: ['integer', 'null'], description: 'Solo vehículos externos: valor del anticipo en pesos (entero, 0 si no habrá anticipo). null si no lo han dicho' },
         },
       },
     },
@@ -59,6 +61,26 @@ export const FIXED_REPLIES = {
 
 const trunc = (v, n) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').slice(0, n);
 
+// Affiliate rules at prepare time. EXTERNO: beneficiary (conductor|poseedor, from Silogtran's list) and value (0..calculated)
+// are ALWAYS asked, never assumed. INTERNO: nothing to ask (driver is the beneficiary; total/zero via buttons).
+export function chooseExternal(resumen, args) {
+  if (resumen.tipoAfiliado !== 'EXTERNO') {
+    const asked = args.beneficiario != null || args.anticipo != null;
+    return { note: asked ? 'Vehículo interno: el beneficiario es el conductor y el anticipo solo puede ser total o cero (se elige con los botones). Ignoré el beneficiario y el valor pedidos.' : null };
+  }
+  const max = resumen.anticipoSugerido;
+  const opts = (resumen.beneficiarios ?? []).filter((o) => o.rol === 'conductor' || o.rol === 'poseedor');
+  const role = String(args.beneficiario ?? '').trim().toLowerCase();
+  const ben = opts.find((o) => o.rol === role);
+  const view = { afiliado: 'EXTERNO', beneficiariosDisponibles: opts.map((o) => o.rol), anticipoMaximo: max };
+  const falta = [...(ben ? [] : ['beneficiario']), ...(args.anticipo == null ? ['anticipo'] : [])];
+  if (falta.length) return { ask: { ok: true, preparado: false, ...view, falta, instruccion: 'Vehículo EXTERNO: pregunta a la persona lo que falta (a quién va el anticipo y cuánto, de 0 a anticipoMaximo) y vuelve a llamar a preparar_despacho con los mismos datos. No supongas.' } };
+  if (!Number.isSafeInteger(args.anticipo) || args.anticipo < 0 || args.anticipo > max) {
+    return { ask: { ok: false, preparado: false, code: 'ANTICIPO_EXCEEDS', ...view, message: `El anticipo debe estar entre 0 y ${max} pesos.` } };
+  }
+  return { eleccion: { beneficiario: { id: ben.id, rol: ben.rol, texto: ben.texto }, anticipo: args.anticipo } };
+}
+
 // Executors bound to the actor (the person linked to this phone). The actor is never a model-controlled argument.
 export function makeExecutors({ userId, send, services = { consultSolicitud, prepareDispatch, createPending } }) {
   return {
@@ -74,9 +96,12 @@ export function makeExecutors({ userId, send, services = { consultSolicitud, pre
     async preparar_despacho(args) {
       await send('⏳ Preparando el despacho en Silogtran… puede tardar unos segundos.');
       const r = await services.prepareDispatch(userId, args.numero, args);
+      const ext = chooseExternal(r.resumen, args);
+      if (ext.ask) return { result: ext.ask }; // nothing pending: the model asks the person and calls again
+      if (ext.eleccion) r.resumen.eleccion = ext.eleccion;
       // The token goes to the pending row; the model only learns that it was prepared.
       const id = await services.createPending(userId, { numero: String(args.numero), token: r.token, resumen: r.resumen, anticipo: r.resumen.anticipoSugerido });
-      return { result: { ok: true, preparado: true }, pending: { id, resumen: r.resumen, numero: String(args.numero) } };
+      return { result: { ok: true, preparado: true, ...(ext.note ? { nota: ext.note } : {}) }, pending: { id, resumen: r.resumen, numero: String(args.numero) } };
     },
   };
 }

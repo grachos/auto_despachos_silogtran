@@ -21,19 +21,28 @@ export function buildSummaryText(r) {
     `Cita de descargue: ${when(r.fechas.citaDescargue.fecha, r.fechas.citaDescargue.hora)}`,
   ];
   if (r.contenedor) lines.push(`Contenedor: ${clean(r.contenedor.numero)} · BL: ${clean(r.contenedor.bl)}`);
-  lines.push(`Anticipo sugerido: ${money(r.anticipoSugerido)}`, '', 'Revisa que todo esté bien y elige una opción. No se graba nada hasta que pulses un botón de confirmar.');
+  if (r.eleccion) {
+    lines.push(`Beneficiario del anticipo: ${clean(r.eleccion.beneficiario.texto)}`, `Anticipo: ${money(r.eleccion.anticipo)} (máximo ${money(r.anticipoSugerido)})`);
+    if (r.eleccion.anticipo > 0) lines.push('Banco: BANCOLOMBIA TERCEROS');
+  } else lines.push(`Anticipo sugerido: ${money(r.anticipoSugerido)}`);
+  lines.push('', 'Revisa que todo esté bien y elige una opción. No se graba nada hasta que pulses un botón de confirmar.');
   return lines.join('\n');
 }
 
 // Button ids carry the pending id: ctot/ccero = confirm with that anticipo, canc = cancel.
-export function buildButtons(pendingId, anticipoSugerido) {
+// External vehicles: beneficiary and value were already chosen (resumen.eleccion), so only Confirm (cok) / Cancel.
+export function buildButtons(pendingId, r) {
+  if (r && typeof r === 'object' && r.tipoAfiliado === 'EXTERNO') {
+    return r.eleccion ? [{ id: `cok:${pendingId}`, title: 'Confirmar' }, { id: `canc:${pendingId}`, title: 'Cancelar' }] : [{ id: `canc:${pendingId}`, title: 'Cancelar' }];
+  }
+  const anticipoSugerido = r && typeof r === 'object' ? r.anticipoSugerido : r;
   return anticipoSugerido > 0
     ? [{ id: `ctot:${pendingId}`, title: 'Anticipo total' }, { id: `ccero:${pendingId}`, title: 'Anticipo cero' }, { id: `canc:${pendingId}`, title: 'Cancelar' }]
     : [{ id: `ccero:${pendingId}`, title: 'Confirmar' }, { id: `canc:${pendingId}`, title: 'Cancelar' }];
 }
 
 // ctot/ccero = confirm, canc = cancel, rep = prepare again with the same data (expired summary).
-export const BUTTON_ID = /^(ctot|ccero|canc|rep):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+export const BUTTON_ID = /^(ctot|ccero|cok|canc|rep):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 
 export function resultText(r) {
   const d = r.documents ?? {};

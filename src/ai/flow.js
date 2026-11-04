@@ -89,7 +89,7 @@ export function createFlow(d) {
   async function sendSummary(phone, pendingId, resumen, lead) {
     if (lead) await d.send(phone, lead);
     const text = buildSummaryText(resumen);
-    const buttons = buildButtons(pendingId, resumen.anticipoSugerido);
+    const buttons = buildButtons(pendingId, resumen);
     if (text.length <= 1000) await d.sendButtons(phone, text, buttons);
     else { await d.send(phone, text); await d.sendButtons(phone, '¿Confirmo el despacho?', buttons); }
   }
@@ -180,6 +180,12 @@ export function createFlow(d) {
     await d.send(phone, '⏳ Preparando de nuevo el despacho en Silogtran… puede tardar unos segundos.');
     try {
       const r = await d.prepareDispatch(uid, p.numero, { ...input, item: p.item ?? input.item ?? null });
+      if (r.resumen.tipoAfiliado === 'EXTERNO') {
+        const old = row.resumen?.eleccion;
+        const ok = old && r.resumen.beneficiarios?.some((o) => o.id === old.beneficiario?.id) && old.anticipo <= r.resumen.anticipoSugerido;
+        if (!ok) return void (await d.send(phone, 'Ese vehículo es externo y el anticipo máximo cambió. Dime de nuevo a quién va el anticipo (conductor o poseedor) y cuánto.'));
+        r.resumen.eleccion = old;
+      }
       const newId = await d.ia.createPending(uid, { numero: String(p.numero), token: r.token, resumen: r.resumen, anticipo: r.resumen.anticipoSugerido });
       await sendSummary(phone, newId, r.resumen);
     } catch (e) {
@@ -203,9 +209,17 @@ export function createFlow(d) {
           if (why === 'EXPIRED') return void (await d.sendButtons(phone, EXPLAIN.EXPIRED, againButton(id)));
           return void (await d.send(phone, await explain(id, uid)));
         }
+        // External vehicles confirm ONLY with the beneficiary/value shown in the summary (cok); internals only with total/zero.
+        const external = row.resumen?.tipoAfiliado === 'EXTERNO';
+        const el = row.resumen?.eleccion;
+        if (external !== (kind === 'cok') || (external && !el?.beneficiario?.id)) {
+          await d.ia.finishPending(id, 'PENDING');
+          return void (await d.send(phone, 'Ese botón no corresponde a este resumen. Pídeme el despacho de nuevo.'));
+        }
         await d.send(phone, '⏳ Confirmando el despacho en Silogtran… puede tardar hasta un minuto.');
         try {
-          const r = await d.confirmDispatch(row.numero, { token: row.token, anticipo: kind === 'ctot' ? 'total' : 'cero' });
+          const args = external ? { anticipo: el.anticipo, beneficiario: el.beneficiario.id } : { anticipo: kind === 'ctot' ? 'total' : 'cero' };
+          const r = await d.confirmDispatch(row.numero, { token: row.token, ...args });
           await d.ia.finishPending(id, 'USED');
           await d.send(phone, resultText(r));
         } catch (e) {
