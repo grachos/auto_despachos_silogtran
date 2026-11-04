@@ -1,4 +1,4 @@
-// POST /api/admin/diag-vehiculo { numero, placa, usuario, item? } — READ-ONLY comparison of the vehicle loaded through
+// POST /api/admin/diag-vehiculo { numero, placa, usuario, item?, completo? } — READ-ONLY comparison of the vehicle loaded through
 // "Vehículos Activos" vs the "Empresas" tab (control ids and filled/sent flags only, never values). Saves nothing.
 import { sendError, ApiError } from '../../http/errors.js';
 import { requireConfig } from '../../config.js';
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     await assertActorActive(userId);
     const out = await withLock(sessionKey(userId), async () => {
       const { client } = await openActorSession(userId);
-      return diagnoseVehicle(client, numero, { placa, item });
+      return diagnoseVehicle(client, numero, { placa, item, completo: req.body?.completo === true });
     });
     res.status(200).json(out);
   } catch (e) {

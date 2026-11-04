@@ -5,7 +5,7 @@ import { ApiError } from '../http/errors.js';
 import { buscarSolicitud } from './solicitud.js';
 import { clearPending, pickItem, startDispatch } from './despacho.js';
 import { PradoPage } from './prado.js';
-import { selectVehicle, tabPanels } from './informacion.js';
+import { selectVehicle, tabPanels, fillInformacion } from './informacion.js';
 
 const P = 'ctl0$MainModule$';
 
@@ -33,7 +33,9 @@ export function diffControls(a, b) {
   return { soloActivos: only(a, b), soloEmpresas: only(b, a), difieren: differ };
 }
 
-export async function diagnoseVehicle(client, numero, { placa, item }) {
+const KEY_IDS = ['ctl0_MainModule_fieldHdVehEmpresaID', 'ctl0_MainModule_enturnamiento_codigo', 'ctl0_MainModule_confirmado_por', 'ctl0_MainModule_tipo_operacion', 'ctl0_MainModule_vehiculo_codigo', 'ctl0_MainModule_tercero_codigo_conductor'];
+
+export async function diagnoseVehicle(client, numero, { placa, item, completo = false }) {
   const solicitud = await buscarSolicitud(client, numero);
   const chosen = pickItem(solicitud, item ?? null);
   const run = async (fuente) => {
@@ -41,6 +43,14 @@ export async function diagnoseVehicle(client, numero, { placa, item }) {
       return await client.enqueue(async () => {
         const d = await startDispatch(client, { numero, item: chosen.item, fechaCreacion: solicitud.fechaCreacion });
         const form = new PradoPage(client, d.page);
+        if (completo) {
+          // Full "Información Despacho" fill (vehicle, route, dates, manifest type, tipo_operacion, confirmado_por) WITHOUT
+          // observaciones/anticipo/save, to see which hidden fields survive the later callbacks.
+          let error = null;
+          try { await fillInformacion(form, { placa, fuente, origen: chosen.origen, destino: chosen.destino }); } catch (e) { error = e?.code ?? 'ERROR'; }
+          const all = snapshotControls(form);
+          return { ok: !error, error, clave: Object.fromEntries(KEY_IDS.map((k) => [k, all[k] ?? null])), controles: all };
+        }
         const v = await selectVehicle(form, placa, fuente);
         return { ok: true, tipoAfiliado: v.tipoAfiliado, beneficiarios: (v.beneficiarios ?? []).length, pestanas: tabPanels(form).map((p) => ({ id: p.id, vistas: p.views.length, campo: p.hiddenName, activa: p.active })), controles: snapshotControls(form) };
       });
