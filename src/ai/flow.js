@@ -7,6 +7,7 @@ import { makeExecutors } from './tools.js';
 import { buildSummaryText, buildButtons, BUTTON_ID, resultText } from './summary.js';
 import { FIXED_REPLIES } from './tools.js';
 import { peekToken } from '../token.js';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 const LIMITS = { msg: Number(process.env.IA_MAX_MSG_HORA) || 40, voz: Number(process.env.IA_MAX_VOZ_HORA) || 15 };
 
@@ -60,7 +61,16 @@ const CONFIRM_ERRORS = {
 };
 
 // d: { ia, chat, transcribe, downloadMedia, confirmDispatch, prepareDispatch, withLock, send(phone,text), sendButtons(phone,body,buttons), aiAvailable(), now(), services? }
-export function createFlow(d) {
+export function createFlow(d0) {
+  // The "typing…" dots disappear when the bot sends a message: after each interim "⏳" notice, show them again
+  // (the inbound message id of the current turn travels in an AsyncLocalStorage; best effort).
+  const turn_ = new AsyncLocalStorage();
+  const d = Object.create(d0); // inherits (and sees later changes to) every dependency; only `send` is wrapped
+  d.send = async (phone, text) => {
+    await d0.send(phone, text);
+    const id = turn_.getStore();
+    if (id && d0.typing && /^⏳|^🎙️ Escuchando/.test(String(text))) Promise.resolve(d0.typing(id)).catch(() => {});
+  };
   const log = (what, e) => console.error(`[ai] ${what}:`, e?.code || e?.name || 'error'); // codes only, never message text
 
   // One start line and one end line per background turn (kind + duration only; never message content).
@@ -121,7 +131,10 @@ export function createFlow(d) {
     return false;
   }
 
-  async function onText({ phone, link, text }) {
+  async function onText({ phone, link, text, msgId }) {
+    return turn_.run(msgId, () => onText_({ phone, link, text }));
+  }
+  async function onText_({ phone, link, text }) {
     if (!d.aiAvailable()) return void (await d.send(phone, T.noAi(link.nombre)));
     await safe(phone, 'text', async () => {
       if ((await d.ia.usageCount(link.userId, 'msg')) >= LIMITS.msg) return void (await d.send(phone, T.limit));
@@ -133,7 +146,10 @@ export function createFlow(d) {
     });
   }
 
-  async function onVoice({ phone, link, mediaId }) {
+  async function onVoice({ phone, link, mediaId, msgId }) {
+    return turn_.run(msgId, () => onVoice_({ phone, link, mediaId }));
+  }
+  async function onVoice_({ phone, link, mediaId }) {
     if (!d.aiAvailable()) return void (await d.send(phone, T.noVoice));
     await safe(phone, 'voice', async () => {
       if ((await d.ia.usageCount(link.userId, 'voz')) >= LIMITS.voz) return void (await d.send(phone, T.limit));
@@ -194,7 +210,10 @@ export function createFlow(d) {
     }
   }
 
-  async function onButton({ phone, link, buttonId }) {
+  async function onButton({ phone, link, buttonId, msgId }) {
+    return turn_.run(msgId, () => onButton_({ phone, link, buttonId }));
+  }
+  async function onButton_({ phone, link, buttonId }) {
     const m = BUTTON_ID.exec(String(buttonId));
     if (!m) return void (await d.send(phone, T.buttonUnknown));
     const [, kind, id] = m;

@@ -21,19 +21,21 @@ const T = {
   textOnly: 'Por ahora entiendo mensajes de texto y notas de voz.',
 };
 
-// deps: { store, getUser, send, flow?, defer? }
+// deps: { store, getUser, send, flow?, defer?, typing?(messageId) }
 export async function handleMessage(msg, deps) {
   const { store, getUser, send, flow } = deps;
   const defer = deps.defer ?? ((p) => { p.catch(() => {}); });
   if (!(await store.markSeen(msg.id))) return 'duplicate';
   try {
     const reply = (t) => send(msg.from, t);
+    // Typing dots right away for messages the assistant will process (best effort, never blocks or fails the message).
+    const typing = () => defer(Promise.resolve().then(() => deps.typing?.(msg.id)).catch((e) => console.error('[whatsapp] typing:', e?.code || 'error')));
     if (msg.type === 'audio' || msg.type === 'interactive') {
       const l = await store.getLinkByPhone(msg.from);
       if (!l) return void (await reply(T.unlinked)), 'unlinked';
       if (l.status !== 'ACTIVE') return void (await reply(l.status === 'NEEDS_RELINK' ? T.relink : T.inactive)), 'inactive';
-      if (flow && msg.type === 'audio' && msg.audio?.id) return defer(flow.onVoice({ phone: msg.from, link: l, mediaId: msg.audio.id })), 'ai-voice';
-      if (flow && msg.type === 'interactive' && msg.interactive?.button_reply?.id) return defer(flow.onButton({ phone: msg.from, link: l, buttonId: msg.interactive.button_reply.id })), 'ai-button';
+      if (flow && msg.type === 'audio' && msg.audio?.id) return typing(), defer(flow.onVoice({ phone: msg.from, link: l, mediaId: msg.audio.id, msgId: msg.id })), 'ai-voice';
+      if (flow && msg.type === 'interactive' && msg.interactive?.button_reply?.id) return typing(), defer(flow.onButton({ phone: msg.from, link: l, buttonId: msg.interactive.button_reply.id, msgId: msg.id })), 'ai-button';
       await reply(T.textOnly);
       return 'non-text';
     }
@@ -67,7 +69,7 @@ export async function handleMessage(msg, deps) {
     }
     if (!link) return void (await reply(T.unlinked)), 'unlinked';
     if (link.status !== 'ACTIVE') return void (await reply(link.status === 'NEEDS_RELINK' ? T.relink : T.inactive)), 'inactive';
-    if (flow) return defer(flow.onText({ phone: msg.from, link, text: msg.text?.body ?? '' })), 'ai-text';
+    if (flow) return typing(), defer(flow.onText({ phone: msg.from, link, text: msg.text?.body ?? '', msgId: msg.id })), 'ai-text';
     await reply(T.linkedSoon(link.nombre)); // assistant not wired (tests / misconfiguration)
     return 'linked-text';
   } catch (e) {

@@ -20,6 +20,19 @@ export async function sendText(to, body) {
   }
 }
 
+// "Typing…" indicator for an inbound message (also marks it as read). WhatsApp shows it until the next reply or ~25 s.
+// Best effort: callers must ignore failures.
+export async function sendTyping(messageId) {
+  const version = process.env.WHATSAPP_API_VERSION || 'v23.0';
+  const res = await fetch(`https://graph.facebook.com/${version}/${process.env.WHATSAPP_PHONE_ID}/messages`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: messageId, typing_indicator: { type: 'text' } }),
+    signal: AbortSignal.timeout(5_000),
+  });
+  if (!res.ok) throw new ApiError('WHATSAPP_TYPING_FAILED', 'WhatsApp rechazó el indicador de escritura.', { status: 502, detail: `HTTP ${res.status}` });
+}
+
 // Interactive reply buttons (max 3; title <= 20 chars; body <= 1024 chars). Ids come back in `interactive.button_reply.id`.
 export async function sendButtons(to, body, buttons) {
   if (buttons.length < 1 || buttons.length > 3) throw new ApiError('INVALID_PARAMETER', 'WhatsApp admite de 1 a 3 botones.', { status: 500 });

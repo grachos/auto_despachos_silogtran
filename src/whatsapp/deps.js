@@ -1,6 +1,6 @@
 import * as store from '../store/whatsapp.js';
 import { getUser } from '../store/usuarios.js';
-import { sendText } from './api.js';
+import { sendText, sendTyping } from './api.js';
 import { waitUntil } from '@vercel/functions';
 import { realFlow } from '../ai/deps.js';
 
@@ -10,4 +10,4 @@ const defer = (p) => {
   try { waitUntil(p); } catch { /* not running on Vercel (local/tests): the promise just runs */ }
 };
 
-export const realDeps = { store, getUser, send: sendText, flow: realFlow, defer };
+export const realDeps = { store, getUser, send: sendText, typing: sendTyping, flow: realFlow, defer };
