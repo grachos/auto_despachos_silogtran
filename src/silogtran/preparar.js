@@ -21,6 +21,7 @@ export async function runPreparation(client, numero, input, { keepOpen = false }
       const form = new PradoPage(client, d.page);
       const info = await fillInformacion(form, {
         placa: input.placa,
+        fuente: input.fuente,
         origen: chosen.origen,
         destino: chosen.destino,
         tipoManifiesto: input.tipoManifiesto,

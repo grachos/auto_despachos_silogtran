@@ -28,6 +28,15 @@ function text(v, label, fallback) {
   return s || fallback;
 }
 
+// Where the vehicle is loaded from: "Vehículos Activos" (default) or the "Empresas" tab. Chosen by the person, never inferred.
+function parseFuente(v) {
+  if (v == null || String(v).trim() === '') return 'activos';
+  const s = String(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  if (/^(activos?|vehiculos? activos?)$/.test(s)) return 'activos';
+  if (/^(empresas?|pestana empresas?)$/.test(s)) return 'empresas';
+  throw bad('El campo fuente debe ser "activos" (Vehículos Activos) o "empresas" (pestaña Empresas).');
+}
+
 export function parsePreparar(body) {
   const b = body && typeof body === 'object' ? body : {};
   const placa = text(b.placa, 'placa', '').toUpperCase();
@@ -40,6 +49,7 @@ export function parsePreparar(body) {
     citaCargue: cita(b.citaCargue, 'citaCargue'),
     citaDescargue: cita(b.citaDescargue, 'citaDescargue'),
     tipoManifiesto: b.tipoManifiesto == null ? null : text(b.tipoManifiesto, 'tipoManifiesto', null),
+    fuente: parseFuente(b.fuente),
     ordenCompra: text(b.ordenCompra, 'ordenCompra', 'NA'),
     observacionOrdenCargue: text(b.observacionOrdenCargue, 'observacionOrdenCargue', 'NA'),
     observacionRemesa: text(b.observacionRemesa, 'observacionRemesa', 'NA'),

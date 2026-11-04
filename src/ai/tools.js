@@ -28,7 +28,7 @@ export const TOOLS = [
       strict: true,
       parameters: {
         type: 'object', additionalProperties: false,
-        required: ['numero', 'item', 'placa', 'citaCargue', 'citaDescargue', 'tipoManifiesto', 'ordenCompra', 'observacionOrdenCargue', 'observacionRemesa', 'contenedor', 'bl', 'beneficiario', 'anticipo'],
+        required: ['numero', 'item', 'placa', 'citaCargue', 'citaDescargue', 'tipoManifiesto', 'ordenCompra', 'observacionOrdenCargue', 'observacionRemesa', 'contenedor', 'bl', 'beneficiario', 'anticipo', 'fuente'],
         properties: {
           numero: str('Número de la solicitud, solo dígitos'),
           item: { type: ['integer', 'null'], description: 'Ítem de la solicitud; null si solo hay uno' },
@@ -41,6 +41,7 @@ export const TOOLS = [
           observacionRemesa: optStr('Observación de la remesa; null si no la dieron'),
           contenedor: optStr('Número de contenedor; null si no aplica'),
           bl: optStr('Número de BL; null si no aplica'),
+          fuente: optStr('De dónde cargar el vehículo: "activos" (Vehículos Activos) o "empresas" (pestaña Empresas). null si la persona no dijo nada (se usa Vehículos Activos). Nunca lo supongas'),
           beneficiario: optStr('Solo vehículos externos: "conductor" o "poseedor" (a quién va el anticipo). null si no lo han dicho o no sabes si el vehículo es externo'),
           anticipo: { type: ['integer', 'null'], description: 'Solo vehículos externos: valor del anticipo en pesos (entero, 0 si no habrá anticipo). null si no lo han dicho' },
         },

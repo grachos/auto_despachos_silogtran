@@ -35,11 +35,11 @@ export function readAfiliado(form) {
   };
 }
 
-// Alternative vehicle source: "Empresas" tab (pre-registered vehicle+trailer+driver combos of an affiliated company).
+// Alternative vehicle source, ONLY when the person asks for it (fuente="empresas"): "Empresas" tab (pre-registered vehicle+trailer+driver combos of an affiliated company).
 // Type the plate, pick the exact combo, press "Aceptar" (ValidationGroup RequeridosEmpresa). The affiliate type
 // (tipafi_codigo) is filled by Silogtran with the vehicle's real value, same as the other source.
 async function selectFromEmpresas(form, plate) {
-  const notFound = () => new ApiError('VEHICLE_NOT_ACTIVE', `El vehículo ${plate} no está activo ni aparece en la pestaña Empresas de Silogtran.`, { status: 404 });
+  const notFound = () => new ApiError('VEHICLE_NOT_ACTIVE', `La placa ${plate} no apareció en la pestaña Empresas. Posibles causas: la placa o alguno de sus terceros (conductor, poseedor, propietario o remolque) está inactivo, o el afiliado de la placa (interno/externo) no corresponde al de la solicitud.`, { status: 404 });
   const name = `${P}vehiculo_placa_empresa`;
   if (!(name in form.fields)) throw notFound();
   const attr = 'ctl0_mainmodule_vehiculo_placa_empresa';
@@ -68,13 +68,16 @@ async function selectFromEmpresas(form, plate) {
   };
 }
 
-async function selectVehicle(form, placa) {
+async function selectVehicle(form, placa, fuente = 'activos') {
   const name = need(form, `${P}vehiculo_codigo_seleccion_activo`);
   const attr = 'ctl0_mainmodule_vehiculo_codigo_seleccion_activo';
   const plate = String(placa || '').trim().toUpperCase();
   if (!plate) throw new ApiError('INVALID_PARAMETER', 'Falta la placa del vehículo.', { status: 400 });
+  if (fuente === 'empresas') return selectFromEmpresas(form, plate);
   const results = await form.suggest(name, plate);
-  if (!results.length) return selectFromEmpresas(form, plate); // not an active fleet vehicle: try the "Empresas" tab
+  if (!results.length) {
+    throw new ApiError('VEHICLE_NOT_ACTIVE', `La placa ${plate} no apareció en Vehículos Activos. Posibles causas: la placa o alguno de sus terceros (conductor, poseedor, propietario o remolque) está inactivo, o el afiliado de la placa (interno/externo) no corresponde al de la solicitud. Si querías despachar por la pestaña Empresas, indícalo.`, { status: 404 });
+  }
   const exact = results.filter((r) => norm(r.attrs[attr]) === norm(plate));
   const pick = exact.length === 1 ? exact[0] : results.length === 1 ? results[0] : null;
   if (!pick) {
@@ -169,8 +172,8 @@ function setManifestType(form, input, defaultCode) {
   return { codigo: opt.value, nombre: opt.text };
 }
 
-export async function fillInformacion(form, { placa, origen, destino, tipoManifiesto, now }) {
-  const vehiculo = await selectVehicle(form, placa); // must come before the route (anticipo depends on it)
+export async function fillInformacion(form, { placa, fuente, origen, destino, tipoManifiesto, now }) {
+  const vehiculo = await selectVehicle(form, placa, fuente); // must come before the route (anticipo depends on it)
   const ruta = await selectRoute(form, origen, destino);
   const fechas = await setDatesAndVolume(form, now);
   const tipo = setManifestType(form, tipoManifiesto, defaultManifestType(origen, destino));
