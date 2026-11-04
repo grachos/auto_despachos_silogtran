@@ -20,13 +20,15 @@ export function snapshotControls(form) {
     const filled = el.tagName === 'select' ? $(el).find('option[selected]').length > 0 : String(el.attribs.value ?? '').trim() !== '';
     const name = el.attribs.name;
     out[id] = { tag, disabled: el.attribs.disabled !== undefined, filled, sent: !!name && name in form.fields && String(form.fields[name] ?? '') !== '' };
+    // Small catalog selects (e.g. "Confirmado Por", "Tipo de operación"): the chosen option's label is a catalog value, not personal data.
+    if (el.tagName === 'select' && $(el).find('option').length <= 12) out[id].opcion = $(el).find('option[selected]').first().text().trim().slice(0, 40) || null;
   });
   return out;
 }
 
 export function diffControls(a, b) {
   const only = (x, y) => Object.keys(x).filter((k) => !(k in y)).sort();
-  const differ = Object.keys(a).filter((k) => k in b && (a[k].filled !== b[k].filled || a[k].sent !== b[k].sent || a[k].disabled !== b[k].disabled)).sort()
+  const differ = Object.keys(a).filter((k) => k in b && (a[k].filled !== b[k].filled || a[k].sent !== b[k].sent || a[k].disabled !== b[k].disabled || a[k].opcion !== b[k].opcion)).sort()
     .map((k) => ({ id: k, activos: a[k], empresas: b[k] }));
   return { soloActivos: only(a, b), soloEmpresas: only(b, a), difieren: differ };
 }
