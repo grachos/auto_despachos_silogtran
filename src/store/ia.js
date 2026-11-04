@@ -35,6 +35,12 @@ export async function createPending(userId, { numero, token, resumen, anticipo }
   return row.id;
 }
 
+// True if the user already has a pending created after `createdAt` (so an older one must not be resurrected).
+export async function newerPendingExists(userId, createdAt) {
+  const rows = await run(supabase().from('ia_pendientes').select('id').eq('user_id', userId).gt('created_at', createdAt).limit(1));
+  return rows.length > 0;
+}
+
 export const getPending = (id) => run(supabase().from('ia_pendientes').select('*').eq('id', id).maybeSingle());
 
 export async function latestPending(userId) {

@@ -31,7 +31,8 @@ export function buildButtons(pendingId, anticipoSugerido) {
     : [{ id: `ccero:${pendingId}`, title: 'Confirmar' }, { id: `canc:${pendingId}`, title: 'Cancelar' }];
 }
 
-export const BUTTON_ID = /^(ctot|ccero|canc):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
+// ctot/ccero = confirm, canc = cancel, rep = prepare again with the same data (expired summary).
+export const BUTTON_ID = /^(ctot|ccero|canc|rep):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 
 export function resultText(r) {
   const d = r.documents ?? {};

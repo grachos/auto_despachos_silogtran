@@ -5,6 +5,8 @@
 import { runAgentTurn } from './agent.js';
 import { makeExecutors } from './tools.js';
 import { buildSummaryText, buildButtons, BUTTON_ID, resultText } from './summary.js';
+import { FIXED_REPLIES } from './tools.js';
+import { peekToken } from '../token.js';
 
 const LIMITS = { msg: Number(process.env.IA_MAX_MSG_HORA) || 40, voz: Number(process.env.IA_MAX_VOZ_HORA) || 15 };
 
@@ -38,15 +40,15 @@ const EXPLAIN = {
   USED: 'Ese despacho ya fue confirmado.',
   CANCELLED: 'Ese despacho fue cancelado.',
   SUPERSEDED: 'Ese resumen ya no está vigente: pediste otro después. Usa los botones del más reciente.',
-  EXPIRED: 'Ese resumen venció (dura 15 minutos). Pídeme el despacho de nuevo.',
+  EXPIRED: 'Ese resumen venció (dura 15 minutos). ¿Lo preparo de nuevo con los mismos datos?',
   NOT_FOUND: 'No encontré ese despacho. Pídemelo de nuevo.',
 };
 
 // Confirm errors: deterministic text and the final state of the pending row (default: back to PENDING so the button can be tapped again).
 const CONFIRM_ERRORS = {
-  ANTICIPO_CHANGED: { text: 'El anticipo cambió desde que preparé el resumen. Pídeme el despacho de nuevo para ver el valor actualizado.', final: 'SUPERSEDED' },
-  TOKEN_EXPIRED: { text: 'El resumen venció (dura 15 minutos). Pídeme el despacho de nuevo.', final: 'SUPERSEDED' },
-  TOKEN_INVALID: { text: 'No pude validar ese resumen. Pídeme el despacho de nuevo.', final: 'SUPERSEDED' },
+  ANTICIPO_CHANGED: { text: 'El anticipo cambió desde que preparé el resumen. ¿Lo preparo de nuevo para ver el valor actualizado?', final: 'SUPERSEDED', again: true },
+  TOKEN_EXPIRED: { text: 'El resumen venció (dura 15 minutos). ¿Lo preparo de nuevo con los mismos datos?', final: 'SUPERSEDED', again: true },
+  TOKEN_INVALID: { text: 'No pude validar ese resumen. ¿Lo preparo de nuevo con los mismos datos?', final: 'SUPERSEDED', again: true },
   USER_BUSY: { text: 'Hay otra operación tuya en curso; espera unos segundos y vuelve a pulsar el botón.' },
   SOLICITUD_LOCKED: { text: 'Esa solicitud se está procesando ahora mismo; espera unos segundos y vuelve a pulsar el botón.' },
   CONFIRMATION_IN_PROGRESS: { text: 'Esa confirmación ya está en proceso; espera unos segundos y vuelve a pulsar el botón.' },
@@ -57,7 +59,7 @@ const CONFIRM_ERRORS = {
   CREDENTIALS_INVALID: { text: 'Tu usuario o contraseña de Silogtran ya no son válidos. Pide un link nuevo al administrador y vuelve a ingresar.', final: 'SUPERSEDED' },
 };
 
-// d: { ia, chat, transcribe, downloadMedia, confirmDispatch, withLock, send(phone,text), sendButtons(phone,body,buttons), aiAvailable(), now(), services? }
+// d: { ia, chat, transcribe, downloadMedia, confirmDispatch, prepareDispatch, withLock, send(phone,text), sendButtons(phone,body,buttons), aiAvailable(), now(), services? }
 export function createFlow(d) {
   const log = (what, e) => console.error(`[ai] ${what}:`, e?.code || e?.name || 'error'); // codes only, never message text
 
@@ -160,6 +162,32 @@ export function createFlow(d) {
     return EXPLAIN[d.pendingProblem(row, uid)] ?? 'No pude usar ese botón. Pídeme el despacho de nuevo.';
   }
 
+  const againButton = (id) => [{ id: `rep:${id}`, title: 'Preparar de nuevo' }];
+
+  // "Preparar de nuevo": re-runs preparar with the SAME data of an expired/obsolete summary of this user (no AI involved).
+  async function reprepare(phone, link, id) {
+    const uid = link.userId;
+    const row = await d.ia.getPending(id);
+    if (!row || row.user_id !== uid) return void (await d.send(phone, EXPLAIN.NOT_FOUND));
+    if (['USED', 'CANCELLED', 'PROCESSING'].includes(row.status)) return void (await d.send(phone, EXPLAIN[row.status]));
+    if (await d.ia.newerPendingExists(uid, row.created_at)) return void (await d.send(phone, 'Ya preparé un resumen más reciente; usa sus botones.'));
+    if (row.status === 'PENDING' && new Date(row.expires_at) > d.now()) return void (await sendSummary(phone, row.id, row.resumen, 'Ese resumen sigue vigente. Aquí están los botones:'));
+    const p = peekToken(row.token); // our own stored token: used only to recover the original data
+    const input = p?.input;
+    if (!input?.placa || !p?.numero) return void (await d.send(phone, 'No pude recuperar los datos de ese despacho. Pídemelo de nuevo.'));
+    const past = [input.citaCargue, input.citaDescargue].some((c) => !c || new Date(`${c.fecha}T${c.hora}-05:00`) <= d.now());
+    if (past) return void (await d.send(phone, 'Alguna de las citas de ese despacho ya pasó. Dime las fechas y horas nuevas de cargue y descargue para prepararlo.'));
+    await d.send(phone, '⏳ Preparando de nuevo el despacho en Silogtran… puede tardar unos segundos.');
+    try {
+      const r = await d.prepareDispatch(uid, p.numero, { ...input, item: p.item ?? input.item ?? null });
+      const newId = await d.ia.createPending(uid, { numero: String(p.numero), token: r.token, resumen: r.resumen, anticipo: r.resumen.anticipoSugerido });
+      await sendSummary(phone, newId, r.resumen);
+    } catch (e) {
+      log('reprepare', e);
+      await d.send(phone, FIXED_REPLIES[e?.code] ?? (e?.message && e?.status && e.status < 500 ? `${e.message}` : `No pude preparar de nuevo (código ${e?.code ?? 'ERROR'}). Pídeme el despacho otra vez.`));
+    }
+  }
+
   async function onButton({ phone, link, buttonId }) {
     const m = BUTTON_ID.exec(String(buttonId));
     if (!m) return void (await d.send(phone, T.buttonUnknown));
@@ -167,9 +195,14 @@ export function createFlow(d) {
     const uid = link.userId;
     await safe(phone, `button:${kind}`, () =>
       underChatLock(phone, link, async () => {
+        if (kind === 'rep') return reprepare(phone, link, id);
         if (kind === 'canc') return void (await d.send(phone, (await d.ia.cancelPending(id, uid)) ? T.cancelled : await explain(id, uid)));
         const row = await d.ia.claimPending(id, uid); // atomic: owner + still PENDING + not expired + latest (older ones are SUPERSEDED)
-        if (!row) return void (await d.send(phone, await explain(id, uid)));
+        if (!row) {
+          const why = d.pendingProblem(await d.ia.getPending(id), uid);
+          if (why === 'EXPIRED') return void (await d.sendButtons(phone, EXPLAIN.EXPIRED, againButton(id)));
+          return void (await d.send(phone, await explain(id, uid)));
+        }
         await d.send(phone, '⏳ Confirmando el despacho en Silogtran… puede tardar hasta un minuto.');
         try {
           const r = await d.confirmDispatch(row.numero, { token: row.token, anticipo: kind === 'ctot' ? 'total' : 'cero' });
@@ -179,7 +212,8 @@ export function createFlow(d) {
           log('confirm', e);
           const map = CONFIRM_ERRORS[e?.code];
           await d.ia.finishPending(id, map?.final ?? 'PENDING');
-          await d.send(phone, map?.text ?? `No pude completar el despacho (código ${e?.code ?? 'ERROR'}). Puedes volver a pulsar el botón en unos minutos.`);
+          if (map?.again) await d.sendButtons(phone, map.text, againButton(id));
+          else await d.send(phone, map?.text ?? `No pude completar el despacho (código ${e?.code ?? 'ERROR'}). Puedes volver a pulsar el botón en unos minutos.`);
         }
       }),
     );

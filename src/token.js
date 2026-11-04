@@ -28,3 +28,13 @@ export function verifyToken(token, typ = 'preparar') {
   }
   return payload;
 }
+
+// Reads the payload of a token WITHOUT verifying signature/expiry. Only for tokens loaded from our own database
+// (e.g. to re-prepare an expired summary); never use it on tokens received from outside.
+export function peekToken(token) {
+  try {
+    return JSON.parse(Buffer.from(String(token || '').split('.')[0], 'base64url').toString());
+  } catch {
+    return null;
+  }
+}
