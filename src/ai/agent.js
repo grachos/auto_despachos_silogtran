@@ -8,9 +8,17 @@ const MAX_STEPS = 4;
 // deps: { chat, executors, history[], now }
 export async function runAgentTurn({ nombre, text, history = [], now = new Date() }, deps) {
   const messages = [{ role: 'system', content: systemPrompt(nombre, now) }, ...history, { role: 'user', content: String(text).slice(0, 1000) }];
+  let consulted = false;
   for (let step = 0; step < MAX_STEPS; step++) {
-    const msg = await deps.chat({ messages, tools: TOOLS });
-    const calls = msg.tool_calls ?? [];
+    let msg = await deps.chat({ messages, tools: TOOLS });
+    let calls = msg.tool_calls ?? [];
+    // Facts about a request (does it exist, can it be dispatched, is a plate available) only come from Silogtran. If the
+    // person named a request number and the model answered without any tool, it improvised: force a (read-only) lookup.
+    if (!calls.length && step === 0 && !consulted && /\d{6,}/.test(String(text))) {
+      msg = await deps.chat({ messages, tools: TOOLS, toolChoice: { type: 'function', function: { name: 'consultar_solicitud' } } });
+      calls = msg.tool_calls ?? [];
+    }
+    if (calls.some((c) => c.function?.name === 'consultar_solicitud')) consulted = true;
     if (!calls.length) {
       const out = String(msg.content ?? '').trim();
       return { kind: 'text', text: (out || 'No te entendí bien. ¿Me cuentas qué solicitud quieres despachar?').slice(0, 3500) };

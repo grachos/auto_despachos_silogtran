@@ -14,7 +14,7 @@ const VOCAB =
   'anticipo total o cero, Santa Marta, Barranquilla, Cartagena, Bogotá, Buenaventura, Medellín, Cali.';
 
 // Returns the assistant message ({ content, tool_calls }). Falls back to the next model when one is retired.
-export async function chatComplete({ messages, tools, timeoutMs = 25_000 }) {
+export async function chatComplete({ messages, tools, toolChoice = 'auto', timeoutMs = 25_000 }) {
   let last;
   for (const model of models()) {
     let res;
@@ -22,7 +22,7 @@ export async function chatComplete({ messages, tools, timeoutMs = 25_000 }) {
       res = await fetch(`${BASE}/chat/completions`, {
         method: 'POST',
         headers: { authorization: `Bearer ${aiKey()}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ model, messages, tools, tool_choice: 'auto', parallel_tool_calls: false, temperature: 0.2, max_tokens: 500 }),
+        body: JSON.stringify({ model, messages, tools, tool_choice: toolChoice, parallel_tool_calls: false, temperature: 0.2, max_tokens: 500 }),
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (e) {
