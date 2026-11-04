@@ -91,7 +91,9 @@ export function makeExecutors({ userId, send, services = { consultSolicitud, pre
       return {
         result: {
           ok: true, numero: s.numero, requiereContenedor: s.requiereContenedor,
-          items: s.items.map((i) => ({ item: i.item, origen: trunc(i.origen, 60), destino: trunc(i.destino, 60), producto: trunc(i.producto, 60), vehiculosPendientes: i.pendientes })),
+          despachable: s.items.some((i) => i.pendientes > 0),
+          nota: 'vehiculosPorDespachar es solo una CANTIDAD de cupos libres, no una lista de vehículos entre los que elegir.',
+          items: s.items.map((i) => ({ item: i.item, origen: trunc(i.origen, 60), destino: trunc(i.destino, 60), producto: trunc(i.producto, 60), vehiculosPorDespachar: i.pendientes, despachable: i.pendientes > 0 })),
         },
       };
     },
