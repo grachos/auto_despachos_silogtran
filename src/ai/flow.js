@@ -109,7 +109,7 @@ export function createFlow(d0) {
     const history = await d.ia.recentHistory(uid);
     const out = await runAgentTurn(
       { nombre: link.nombre, text, history, now: d.now() },
-      { chat: d.chat, executors: makeExecutors({ userId: uid, send: (t) => d.send(phone, t), services: d.services }) },
+      { chat: d.chat, executors: makeExecutors({ userId: uid, send: (t) => d.send(phone, t), userText: text, services: d.services }) },
     );
     await d.ia.addMessage(uid, 'user', text);
     if (out.kind === 'pending') {
