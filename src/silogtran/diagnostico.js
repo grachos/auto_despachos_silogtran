@@ -5,7 +5,7 @@ import { ApiError } from '../http/errors.js';
 import { buscarSolicitud } from './solicitud.js';
 import { clearPending, pickItem, startDispatch } from './despacho.js';
 import { PradoPage } from './prado.js';
-import { selectVehicle } from './informacion.js';
+import { selectVehicle, tabPanels } from './informacion.js';
 
 const P = 'ctl0$MainModule$';
 
@@ -42,7 +42,7 @@ export async function diagnoseVehicle(client, numero, { placa, item }) {
         const d = await startDispatch(client, { numero, item: chosen.item, fechaCreacion: solicitud.fechaCreacion });
         const form = new PradoPage(client, d.page);
         const v = await selectVehicle(form, placa, fuente);
-        return { ok: true, tipoAfiliado: v.tipoAfiliado, beneficiarios: (v.beneficiarios ?? []).length, controles: snapshotControls(form) };
+        return { ok: true, tipoAfiliado: v.tipoAfiliado, beneficiarios: (v.beneficiarios ?? []).length, pestanas: tabPanels(form).map((p) => ({ id: p.id, vistas: p.views.length, campo: p.hiddenName, activa: p.active })), controles: snapshotControls(form) };
       });
     } catch (e) {
       return { ok: false, code: e?.code ?? 'ERROR', message: String(e?.message ?? '').slice(0, 200) };

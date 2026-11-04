@@ -13,6 +13,7 @@ export function buildSummaryText(r) {
     `Solicitud: ${clean(r.solicitud.numero)} (ítem ${clean(r.solicitud.item)}) · ${clean(r.solicitud.origen)} → ${clean(r.solicitud.destino)}`,
     `Vehículo: ${clean(r.vehiculo.placa)} · ${clean(r.vehiculo.clase)} · ${clean(r.vehiculo.carroceria)}`,
     ...(r.tipoAfiliado ? [`Afiliado: ${clean(r.tipoAfiliado)}`] : []),
+    `Cargado por: ${fuenteLabel(r.fuente)}`,
     `Remolque: ${clean(r.trailer)}`,
     `Conductor: ${clean(r.conductor)}`,
     `Ruta: ${clean(r.ruta)}`,
@@ -44,10 +45,13 @@ export function buildButtons(pendingId, r) {
 // ctot/ccero = confirm, canc = cancel, rep = prepare again with the same data (expired summary).
 export const BUTTON_ID = /^(ctot|ccero|cok|canc|rep):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 
-export function resultText(r) {
+export const fuenteLabel = (f) => (f === 'empresas' ? 'pestaña Empresas (Confirmado Por: EMPRESA)' : 'Vehículos Activos (Confirmado Por: NORMAL)');
+
+export function resultText(r, resumen) {
   const d = r.documents ?? {};
   const lines = [r.repeated ? 'ℹ️ Este despacho ya estaba confirmado.' : '✅ ¡Despacho confirmado!', `Orden de cargue: ${d.ordenCargue ?? '—'}`, `Remesa: ${d.remesa ?? '—'}`, `Manifiesto: ${d.manifiesto ?? '—'}`];
   if (d.transferencia) lines.push(`Transferencia: ${d.transferencia}`);
+  if (resumen) lines.push(`Cargado por: ${fuenteLabel(resumen.fuente)}`);
   lines.push(r.rndc?.migrated ? `Ministerio: radicado ${r.rndc.radicado}` : r.rndc ? 'Ministerio: sin migrar todavía (puede tardar).' : 'Ministerio: estado no verificado.');
   return lines.join('\n');
 }

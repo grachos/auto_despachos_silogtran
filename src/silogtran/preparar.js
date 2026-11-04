@@ -39,6 +39,8 @@ export async function runPreparation(client, numero, input, { keepOpen = false }
         tipoAfiliado: info.vehiculo.tipoAfiliado,
         beneficiarios: info.vehiculo.beneficiarios,
         tipoOperacion: info.tipoOperacion,
+        fuente: input.fuente ?? 'activos',
+        confirmadoPor: info.confirmadoPor ?? null,
         trailer: info.vehiculo.trailer,
         conductor: info.vehiculo.conductor,
         ruta: info.ruta.ruta,

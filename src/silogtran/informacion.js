@@ -40,12 +40,43 @@ export function readAfiliado(form) {
 // EMPRESA) in the browser, which an HTTP client does not replicate. We always set it explicitly, and again right before
 // "Grabar" (later postbacks re-render the page). If the field is missing we fail BEFORE saving.
 export const CONFIRMADO_POR = 'ctl0$MainModule$confirmado_por';
+
+// PRADO TTabPanel: `new Prado.WebUI.TTabPanel({"ID":..., "Views":[...]})` + hidden input `<ID>_1` = active view index.
+// The browser updates it when the person clicks a tab; an HTTP client never does, so the server keeps thinking the
+// first tab ("Vehículos Activos") is active. Finds the panel whose view contains `controlName` and marks that view active.
+export function tabPanels(form) {
+  const out = [];
+  for (const m of String(form.html ?? '').matchAll(/TTabPanel\((\{[^;]*?\})\)/g)) {
+    let o = null;
+    try { o = JSON.parse(m[1]); } catch { /* tolerate non-JSON option literals */ }
+    const id = o?.ID ?? /['"]ID['"]\s*:\s*['"]([^'"]+)/.exec(m[1])?.[1];
+    const views = o?.Views ?? [...(/['"]Views['"]\s*:\s*\[([^\]]*)\]/.exec(m[1])?.[1] ?? '').matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1]);
+    if (!id || !views.length) continue;
+    const hiddenName = form.ids?.get(`${id}_1`.toLowerCase()) ?? null;
+    out.push({ id, views, hiddenName, active: hiddenName ? form.fields[hiddenName] ?? null : null });
+  }
+  return out;
+}
+export function activateTabOf(form, controlName) {
+  const $ = form.$();
+  for (const p of tabPanels(form)) {
+    const index = p.views.findIndex((v) => $(`#${v}`).find(`[name="${controlName}"]`).length > 0);
+    if (index >= 0 && p.hiddenName && p.hiddenName in form.fields) {
+      form.fields[p.hiddenName] = String(index);
+      form.activeTab = { name: p.hiddenName, value: String(index) };
+      return form.activeTab;
+    }
+  }
+  return null;
+}
 export function setConfirmadoPor(form, fuente = 'activos') {
   if (!(CONFIRMADO_POR in form.fields)) {
     throw new ApiError('CONFIRMED_BY_FIELD_MISSING', 'No encontré el campo "Confirmado Por" de Silogtran; no se grabó nada.', { status: 502 });
   }
   const opt = resolveOption(selectOptions(form, CONFIRMADO_POR), fuente === 'empresas' ? 'EMPRESA' : 'NORMAL', 'Confirmado Por');
   form.fields[CONFIRMADO_POR] = opt.value;
+  // Keep the Empresas tab marked active across later postbacks (they re-render the page).
+  if (fuente === 'empresas' && form.activeTab && form.activeTab.name in form.fields) form.fields[form.activeTab.name] = form.activeTab.value;
   return opt.value;
 }
 
@@ -67,6 +98,7 @@ async function selectFromEmpresas(form, plate) {
   }
   const pick = exact[0];
   form.select(pick);
+  activateTabOf(form, name); // the server may derive "Confirmado Por" from the ACTIVE tab, not from the posted select
   const target = form.buttonByGroup('RequeridosEmpresa', `${P}Aceptar_empresa`);
   await form.postback(target, { [target]: 'Aceptar' });
   const filled = form.value('ctl0_MainModule_vehiculo_codigo');

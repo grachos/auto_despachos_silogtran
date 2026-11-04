@@ -244,7 +244,7 @@ export function createFlow(d0) {
           const args = external ? { anticipo: el.anticipo, beneficiario: el.beneficiario.id } : { anticipo: kind === 'ctot' ? 'total' : 'cero' };
           const r = await d.confirmDispatch(row.numero, { token: row.token, ...args });
           await d.ia.finishPending(id, 'USED');
-          await d.send(phone, resultText(r));
+          await d.send(phone, resultText(r, row.resumen));
         } catch (e) {
           log('confirm', e);
           const map = CONFIRM_ERRORS[e?.code];
