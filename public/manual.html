@@ -10,7 +10,7 @@
 <ol>
 <li>Escribes al asistente por WhatsApp, con tus palabras o con una <b>nota de voz</b>, qué solicitud quieres despachar y con qué vehículo.</li>
 <li>El asistente te pregunta lo que falte y te avisa si hay algo que no puede omitir.</li>
-<li>Antes de grabar te muestra un <b>resumen</b> (vehículo, conductor, ruta, fechas y anticipo) con <b>botones</b>: <i>Anticipo total</i>, <i>Anticipo cero</i> y <i>Cancelar</i>.</li>
+<li>Antes de grabar te muestra un <b>resumen</b> (vehículo, conductor, ruta, fechas y anticipo) con <b>botones</b>: <i>Anticipo total</i>, <i>Anticipo cero</i> y <i>Cancelar</i> (si el vehículo es <b>externo</b>, ver más abajo: eliges antes a quién va el anticipo y cuánto, y los botones son <i>Confirmar</i> y <i>Cancelar</i>).</li>
 <li>Cuando pulsas un botón de confirmar, el despacho se graba en Silogtran y recibes la <b>remesa</b>, el <b>manifiesto</b> y el estado frente al Ministerio.</li>
 </ol>
 <p class="muted">Nada se graba sin que pulses un botón de confirmar. Escribir o decir "sí" no confirma: el asistente te volverá a mostrar los botones.</p>
@@ -20,15 +20,28 @@
 <table>
 <tr><th>Dato</th><th>¿Obligatorio?</th><th>Detalle</th></tr>
 <tr><td>Número de solicitud</td><td>Sí</td><td>Solo dígitos, por ejemplo <code>0101072807</code>.</td></tr>
-<tr><td>Placa del vehículo</td><td>Sí</td><td>Debe estar activa en Silogtran. Si no lo está, el asistente te lo dirá.</td></tr>
+<tr><td>Placa del vehículo</td><td>Sí</td><td>Debe estar activa en Silogtran, con su conductor, poseedor, propietario y remolque también activos. Si no aparece, el asistente te explicará las posibles causas.</td></tr>
+<tr><td>De dónde cargar el vehículo</td><td>No</td><td>Por defecto se busca en <b>Vehículos Activos</b>. Si quieres usar la pestaña <b>Empresas</b>, dilo expresamente (por ejemplo «por la pestaña Empresas»). El asistente nunca cambia de una a otra por su cuenta.</td></tr>
 <tr><td>Cita de cargue</td><td>Sí</td><td>Fecha y hora. Ejemplo: <code>8 de noviembre 2:00 pm</code>.</td></tr>
 <tr><td>Cita de descargue</td><td>Sí</td><td>Fecha y hora.</td></tr>
 <tr><td>Contenedor y BL</td><td>Solo si la solicitud lleva contenedor</td><td>Número del contenedor y número de BL. El asistente consulta la solicitud y te avisa si los necesita.</td></tr>
 <tr><td>Tipo de manifiesto</td><td>No</td><td>Si no lo indicas: <b>municipal o urbano</b> cuando el origen y el destino son la misma ciudad, y <b>general</b> en los demás casos.</td></tr>
 <tr><td>Orden de compra</td><td>No</td><td>Si no la indicas, se registra "NA".</td></tr>
 <tr><td>Observaciones de la orden de cargue y de la remesa</td><td>No</td><td>Si no las indicas, se registra "NA".</td></tr>
-<tr><td>Anticipo</td><td>Sí, al confirmar</td><td><b>Total</b> (el valor que calcula Silogtran para la ruta) o <b>cero</b>.</td></tr>
+<tr><td>Anticipo</td><td>Sí, al confirmar</td><td>Vehículo <b>interno</b>: <b>total</b> (el valor que calcula Silogtran para la ruta) o <b>cero</b>. Vehículo <b>externo</b>: cualquier valor entre 0 y el calculado (ver abajo).</td></tr>
+<tr><td>Beneficiario del anticipo</td><td>Solo vehículos externos</td><td><b>Conductor</b> o <b>poseedor</b>. En vehículos internos el beneficiario es siempre el conductor.</td></tr>
 </table>
+
+<h2>Vehículos internos y externos</h2>
+<p>Silogtran clasifica cada vehículo como <b>interno</b> o <b>externo</b> (Tipo Afiliado). El asistente lo detecta solo y muestra «Afiliado» en el resumen.</p>
+<table>
+<tr><th></th><th>Interno</th><th>Externo</th></tr>
+<tr><td>Beneficiario del anticipo</td><td>Siempre el conductor</td><td>Lo eliges tú: conductor o poseedor</td></tr>
+<tr><td>Valor del anticipo</td><td>Total o cero</td><td>Cualquier valor entre 0 y el calculado por Silogtran (el asistente te dice el máximo)</td></tr>
+<tr><td>Banco del pago</td><td>Bancolombia Propios</td><td>Bancolombia Terceros</td></tr>
+<tr><td>Botones del resumen</td><td>Anticipo total · Anticipo cero · Cancelar</td><td>Confirmar · Cancelar (ya con el beneficiario y el valor elegidos)</td></tr>
+</table>
+<p class="muted">En un vehículo externo el asistente <b>siempre pregunta</b> a quién va el anticipo y cuánto: nunca lo supone. El resumen muestra el beneficiario, el valor y el banco antes de que confirmes.</p>
 
 <h2>Tipos de manifiesto</h2>
 <table>
@@ -48,17 +61,24 @@
 <div class="bubble u">Quiero despachar la solicitud 0101072807 con la placa KNL058</div>
 <div class="bubble b">Perfecto. Para la solicitud 0101072807 (Santa Marta → Santa Marta, con contenedor) me falta: cita de cargue, cita de descargue, número de contenedor y BL.</div>
 <div class="bubble u">Cargue el 8 de noviembre a las 2 pm, descargue el 10 a las 4 pm. Contenedor WHSU545823-0, BL ABC123</div>
-<div class="bubble b">Resumen: vehículo KNL058 · conductor Edwin Jiménez · ruta Santa Marta – Santa Marta · manifiesto municipal · anticipo sugerido $12.896. ¿Lo confirmo con anticipo total o cero?</div>
 <div class="bubble b">📋 Resumen del despacho · Solicitud 0101072807 · Vehículo KNL058 · Conductor Edwin Jiménez · Cita de cargue: domingo 8 de noviembre, 2:00 p. m. · Cita de descargue: martes 10 de noviembre, 4:00 p. m. · Anticipo sugerido $12.896 · [Anticipo total] [Anticipo cero] [Cancelar]</div>
 <div class="bubble u">(pulsa «Anticipo total»)</div>
 <div class="bubble b">✅ ¡Despacho confirmado! Orden de cargue 0101077410 · Remesa 0101227136 · Manifiesto 0101226140 · Ministerio: sin migrar todavía (puede tardar).</div>
 </div>
 
+<h3>Ejemplo con un vehículo externo</h3>
+<div class="card">
+<div class="bubble u">Despacha la solicitud 0101072983 con la placa KSK198, cargue mañana 8:00 am y descargue pasado mañana 4:00 pm</div>
+<div class="bubble b">El vehículo es externo. ¿A quién va el anticipo, al conductor o al poseedor? ¿Y de cuánto? (máximo $495.000)</div>
+<div class="bubble u">Al poseedor, 300 mil</div>
+<div class="bubble b">📋 Resumen del despacho · Afiliado: EXTERNO · Beneficiario del anticipo: INVERZA LTDA – POSEEDOR · Anticipo: $300.000 (máximo $495.000) · Banco: BANCOLOMBIA TERCEROS · [Confirmar] [Cancelar]</div>
+</div>
+
 <h2>Notas de voz</h2>
 <p>Puedes dictar el despacho en una nota de voz. El asistente la transcribe y te responde primero con lo que entendió ("Entendí: …") para que veas si alguna placa o número se escuchó mal. Si algo está mal, corrígelo antes de confirmar: el resumen con botones siempre muestra los datos tal como los encontró Silogtran.</p>
 
-<h2>Varios despachos a la vez</h2>
-<p>También puedes enviar una tabla con varios despachos (una fila por solicitud, con placa, citas y los demás datos). El asistente la interpreta, te muestra qué entendió y qué falta, y espera tu confirmación antes de grabar.</p>
+<h2>Varios despachos a la vez <span class="muted">(próximamente)</span></h2>
+<p>Muy pronto podrás enviar una tabla con varios despachos (una fila por solicitud, con placa, citas y los demás datos). El asistente la interpreta, te muestra qué entendió y qué falta, y espera tu confirmación antes de grabar.</p>
 
 <h2>Comandos útiles</h2>
 <table>
@@ -74,6 +94,7 @@
 <li>Si el anticipo cambia entre el resumen y la confirmación, el asistente te avisa y te pide confirmar de nuevo.</li>
 <li>Si Silogtran no responde con claridad al grabar, el asistente <b>no reintenta solo</b>: te pedirá verificar en Silogtran antes de repetir, para evitar despachos duplicados.</li>
 <li>Una solicitud se procesa de a una vez.</li>
+<li>Si la placa no aparece en Silogtran, las causas habituales son: la placa o alguno de sus terceros (conductor, poseedor, propietario o remolque) está inactivo, o el vehículo es de otro tipo de afiliado (interno o externo) que el de la solicitud.</li>
 <li>El estado frente al Ministerio puede aparecer como "Sin migrar" justo después de grabar; la migración puede tardar.</li>
 </ul>
 
