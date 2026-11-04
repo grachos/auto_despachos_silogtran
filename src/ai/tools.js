@@ -41,7 +41,7 @@ export const TOOLS = [
           observacionRemesa: optStr('Observación de la remesa; null si no la dieron'),
           contenedor: optStr('Número de contenedor; null si no aplica'),
           bl: optStr('Número de BL; null si no aplica'),
-          fuente: optStr('De dónde cargar el vehículo: "activos" (Vehículos Activos) o "empresas" (pestaña Empresas). null si la persona no dijo nada (se usa Vehículos Activos). Nunca lo supongas'),
+          fuente: optStr('De dónde cargar el vehículo: "activos" (Vehículos Activos) o "empresas" (pestaña Empresas; úsalo si dicen «viaje empresa», «por empresa» o similar). null si la persona no dijo nada (se usa Vehículos Activos).'),
           beneficiario: optStr('Solo vehículos externos: "conductor" o "poseedor" (a quién va el anticipo). null si no lo han dicho o no sabes si el vehículo es externo'),
           anticipo: { type: ['integer', 'null'], description: 'Solo vehículos externos: valor del anticipo en pesos (entero, 0 si no habrá anticipo). null si no lo han dicho' },
         },
