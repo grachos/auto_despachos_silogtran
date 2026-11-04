@@ -68,7 +68,7 @@ async function selectFromEmpresas(form, plate) {
   };
 }
 
-async function selectVehicle(form, placa, fuente = 'activos') {
+export async function selectVehicle(form, placa, fuente = 'activos') {
   const name = need(form, `${P}vehiculo_codigo_seleccion_activo`);
   const attr = 'ctl0_mainmodule_vehiculo_codigo_seleccion_activo';
   const plate = String(placa || '').trim().toUpperCase();

@@ -182,3 +182,6 @@ Flujo deseado: el admin crea un usuario y se le asigna un **link de un solo uso 
 
 ## Indicador «escribiendo…» (2026-11-04)
 - `sendTyping(messageId)` (`src/whatsapp/api.js`): POST `/messages` con `status:"read"` + `typing_indicator:{type:"text"}` (marca leído y muestra los puntos hasta la próxima respuesta o ~25 s). El handler lo dispara de inmediato para texto, voz y botones de un usuario vinculado y activo (no para AYUDA/VINCULAR), vía `deps.typing` + `defer`; es de mejor esfuerzo: un fallo solo registra `[whatsapp] typing: <código>`. Como el indicador desaparece al enviar un mensaje, el flujo de IA lo reactiva tras cada aviso «⏳» / «🎙️ Escuchando» del mismo turno (el `msgId` viaja por `AsyncLocalStorage`). **Sin probar aún con Meta real.**
+
+## Diagnóstico de vehículo (2026-11-04)
+- `POST /api/admin/diag-vehiculo { numero, placa, usuario, item? }` (admin; solo lectura): carga la misma placa por «Vehículos Activos» y por «Empresas» en formularios nuevos y compara qué controles quedan llenos y cuáles enviaría un navegador (`filled`/`sent`/`disabled`). Devuelve solo ids y banderas, **nunca valores**; limpia el pendiente y no graba. Creado para entender el `SAVE_REJECTED` («error al grabar… código 8931x») al despachar por Empresas. Código: `src/silogtran/diagnostico.js`.
