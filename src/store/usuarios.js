@@ -10,6 +10,10 @@ const run = async (q) => {
   return data;
 };
 
+// A user flagged relink_required is reported as NEEDS_RELINK (stored as status DISABLED so every
+// "is ACTIVE?" check fails safe; the flag only selects the message).
+const eff = (u) => (u ? { ...u, status: u.relink_required ? 'NEEDS_RELINK' : u.status } : u);
+
 export const MAX_ATTEMPTS = 5;
 export const INVITATION_TTL_MS = 2 * 60 * 60 * 1000;
 
@@ -20,11 +24,11 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export async function findUserByRef(ref) {
   const r = String(ref ?? '').trim();
   if (!r) return null;
-  const q = supabase().from('app_users').select('id, nombre, silog_user, status');
-  return run(UUID_RE.test(r) ? q.eq('id', r).maybeSingle() : q.eq('silog_user_key', r.toLowerCase()).maybeSingle());
+  const q = supabase().from('app_users').select('id, nombre, silog_user, status, relink_required');
+  return eff(await run(UUID_RE.test(r) ? q.eq('id', r).maybeSingle() : q.eq('silog_user_key', r.toLowerCase()).maybeSingle()));
 }
 
-export const getUser = async (id) => (await run(supabase().from('app_users').select('id, nombre, silog_user, status').eq('id', id).maybeSingle()));
+export const getUser = async (id) => eff(await run(supabase().from('app_users').select('id, nombre, silog_user, status, relink_required').eq('id', id).maybeSingle()));
 
 export async function createInvitation(userId, tokenHash) {
   const nowIso = new Date().toISOString();
@@ -77,6 +81,7 @@ export async function activateUser(userId, silogUser, password) {
       silog_user_key: silogUser.toLowerCase(),
       silog_password_enc: encrypt(password, userId),
       status: 'ACTIVE',
+      relink_required: false,
       updated_at: new Date().toISOString(),
     }).eq('id', userId),
   );
@@ -84,9 +89,21 @@ export async function activateUser(userId, silogUser, password) {
 
 // Decrypted only in memory, only to open a Silogtran session (used from M4 on). Never log or return it.
 export async function getCredentials(userId) {
-  const u = await run(supabase().from('app_users').select('silog_user, silog_password_enc, status').eq('id', userId).maybeSingle());
+  const u = await run(supabase().from('app_users').select('silog_user, silog_password_enc, status, relink_required').eq('id', userId).maybeSingle());
+  if (u?.relink_required) {
+    throw new ApiError('RELINK_REQUIRED', 'Tu contraseña de Silogtran ya no es válida; pide un link nuevo para actualizarla.', { status: 403 });
+  }
   if (!u || u.status !== 'ACTIVE' || !u.silog_password_enc) {
     throw new ApiError('USER_NOT_ACTIVE', 'El usuario no está activo o no ha configurado sus credenciales de Silogtran.', { status: 403 });
   }
   return { user: u.silog_user, password: decrypt(u.silog_password_enc, userId) };
+}
+
+// Atomic: only the caller that actually flips ACTIVE -> relink gets `true` (and should notify the person).
+export async function flipNeedsRelink(userId) {
+  const rows = await run(
+    supabase().from('app_users').update({ status: 'DISABLED', relink_required: true, updated_at: new Date().toISOString() })
+      .eq('id', userId).eq('status', 'ACTIVE').select('id'),
+  );
+  return rows.length === 1;
 }

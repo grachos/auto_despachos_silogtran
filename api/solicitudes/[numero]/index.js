@@ -1,9 +1,10 @@
-// GET /api/solicitudes/:numero — read-only lookup (origin/destination per item, container flag).
+// GET /api/solicitudes/:numero[?usuario=<id|usuario Silogtran>] — read-only lookup (origin/destination per item,
+// container flag), using the session of that user (default: user zero).
 import { requireApiKey } from '../../../src/http/auth.js';
-import { ApiError, sendError } from '../../../src/http/errors.js';
+import { sendError } from '../../../src/http/errors.js';
 import { requireConfig } from '../../../src/config.js';
-import { openSession } from '../../../src/silogtran/session.js';
-import { buscarSolicitud } from '../../../src/silogtran/solicitud.js';
+import { resolveActorId } from '../../../src/silogtran/userSession.js';
+import { consultSolicitud } from '../../../src/dispatch/service.js';
 
 export default async function handler(req, res) {
   try {
@@ -13,13 +14,8 @@ export default async function handler(req, res) {
     }
     requireApiKey(req);
     requireConfig();
-    const numero = String(req.query.numero || '').trim();
-    if (!/^\d{4,20}$/.test(numero)) {
-      throw new ApiError('INVALID_PARAMETER', 'El número de solicitud debe contener solo dígitos (4 a 20).', { status: 400 });
-    }
-    const { client } = await openSession();
-    const solicitud = await buscarSolicitud(client, numero);
-    res.status(200).json({ ok: true, solicitud });
+    const userId = await resolveActorId(req.query?.usuario);
+    res.status(200).json({ ok: true, solicitud: await consultSolicitud(userId, req.query.numero) });
   } catch (e) {
     sendError(res, e);
   }

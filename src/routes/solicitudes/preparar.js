@@ -1,13 +1,11 @@
-// POST /api/solicitudes/:numero/preparar — fills the whole dispatch form without saving and returns a
-// summary plus a signed token for `confirmar`. Nothing is saved; the pending item is always cleared.
-import { randomUUID } from 'node:crypto';
+// POST /api/solicitudes/:numero/preparar — fills the whole dispatch form without saving and returns a summary plus a
+// signed token for `confirmar`. Nothing is saved; the pending item is always cleared.
+// Optional `usuario` (user id or Silogtran username, body or query): act as that linked user (service key only).
 import { requireApiKey } from '../../http/auth.js';
-import { ApiError, sendError } from '../../http/errors.js';
+import { sendError } from '../../http/errors.js';
 import { requireConfig } from '../../config.js';
-import { parsePreparar } from '../../validation.js';
-import { assertTokenSecret, signToken } from '../../token.js';
-import { openSession } from '../../silogtran/session.js';
-import { runPreparation } from '../../silogtran/preparar.js';
+import { resolveActorId } from '../../silogtran/userSession.js';
+import { prepareDispatch } from '../../dispatch/service.js';
 
 export default async function handler(req, res) {
   try {
@@ -17,16 +15,8 @@ export default async function handler(req, res) {
     }
     requireApiKey(req);
     requireConfig();
-    assertTokenSecret(); // fail before touching Silogtran
-    const numero = String(req.query.numero || '').trim();
-    if (!/^\d{4,20}$/.test(numero)) {
-      throw new ApiError('INVALID_PARAMETER', 'El número de solicitud debe contener solo dígitos (4 a 20).', { status: 400 });
-    }
-    const input = parsePreparar(req.body);
-    const { client } = await openSession();
-    const { summary, item } = await runPreparation(client, numero, input);
-    const token = signToken({ jti: randomUUID(), numero, item, input, anticipo: summary.anticipoSugerido });
-    res.status(200).json({ ok: true, resumen: summary, token, tokenExpiraEnSegundos: 900 });
+    const userId = await resolveActorId(req.body?.usuario ?? req.query?.usuario);
+    res.status(200).json(await prepareDispatch(userId, req.query.numero, req.body));
   } catch (e) {
     sendError(res, e);
   }

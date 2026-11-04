@@ -12,7 +12,7 @@ const maskPhone = (p) => (p ? `••••${String(p).slice(-4)}` : null);
 export async function listUsers() {
   const db = supabase();
   const [users, links, disp] = await Promise.all([
-    run(db.from('app_users').select('id, nombre, silog_user, status, created_at').order('created_at')),
+    run(db.from('app_users').select('id, nombre, silog_user, status, relink_required, created_at').order('created_at')),
     run(db.from('vinculos_whatsapp').select('user_id, phone, linked_at')),
     run(db.from('silog_confirmaciones').select('user_id, status, created_at').not('user_id', 'is', null).limit(5000)),
   ]);
@@ -22,7 +22,7 @@ export async function listUsers() {
     const last = mine.reduce((m, d) => (d.created_at > m ? d.created_at : m), '');
     const l = link.get(u.id);
     return {
-      id: u.id, nombre: u.nombre, silogUser: u.silog_user, estado: u.status, creadoEn: u.created_at,
+      id: u.id, nombre: u.nombre, silogUser: u.silog_user, estado: u.relink_required ? 'NEEDS_RELINK' : u.status, creadoEn: u.created_at,
       whatsapp: l ? 'VINCULADO' : 'DESVINCULADO', telefono: maskPhone(l?.phone), vinculadoDesde: l?.linked_at ?? null,
       despachos: mine.filter((d) => d.status === 'DONE').length, ultimoDespacho: last || null,
     };

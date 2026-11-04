@@ -20,6 +20,7 @@ export default async function handler(req, res) {
         total: usuarios.length,
         activos: usuarios.filter((u) => u.estado === 'ACTIVE').length,
         vinculados: usuarios.filter((u) => u.whatsapp === 'VINCULADO').length,
+        requierenLink: usuarios.filter((u) => u.estado === 'NEEDS_RELINK').length,
       },
       usuarios,
     });

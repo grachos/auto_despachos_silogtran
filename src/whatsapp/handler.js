@@ -14,6 +14,7 @@ const T = {
   badFormat: 'Para vincular tu cuenta envía: VINCULAR seguido de los 6 dígitos del código. Ejemplo: VINCULAR 123456',
   locked: 'Demasiados intentos con códigos incorrectos. Espera una hora e intenta de nuevo.',
   inactive: 'Tu cuenta no está activa. Pide un link nuevo al administrador.',
+  relink: 'Tu usuario o contraseña de Silogtran ya no son válidos. Pide un link nuevo al administrador y vuelve a ingresar para poder despachar.',
   unlinkedOk: 'Listo, desvinculé este número. Para volver a usar el asistente, vincúlalo de nuevo desde la página de vinculación.',
   notLinked: 'Este número no estaba vinculado a ninguna cuenta.',
   textOnly: 'Por ahora solo entiendo mensajes de texto.',
@@ -40,7 +41,7 @@ export async function handleMessage(msg, deps) {
         return 'bad-code';
       }
       const user = await getUser(userId);
-      if (!user || user.status !== 'ACTIVE') return void (await reply(T.inactive)), 'inactive';
+      if (!user || user.status !== 'ACTIVE') return void (await reply(user?.status === 'NEEDS_RELINK' ? T.relink : T.inactive)), 'inactive';
       await store.linkPhone(userId, msg.from);
       await reply(T.welcome(user.nombre));
       return 'linked';
@@ -54,7 +55,7 @@ export async function handleMessage(msg, deps) {
       return 'unlink';
     }
     if (!link) return void (await reply(T.unlinked)), 'unlinked';
-    if (link.status !== 'ACTIVE') return void (await reply(T.inactive)), 'inactive';
+    if (link.status !== 'ACTIVE') return void (await reply(link.status === 'NEEDS_RELINK' ? T.relink : T.inactive)), 'inactive';
     await reply(T.linkedSoon(link.nombre)); // placeholder until the AI assistant (M5)
     return 'linked-text';
   } catch (e) {

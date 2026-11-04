@@ -22,8 +22,8 @@ export async function markSeen(messageId) {
 export const unmarkSeen = (messageId) => run(supabase().from('whatsapp_mensajes').delete().eq('message_id', messageId));
 
 export async function getLinkByPhone(phone) {
-  const row = await run(supabase().from('vinculos_whatsapp').select('user_id, app_users(nombre, status)').eq('phone', phone).maybeSingle());
-  return row ? { userId: row.user_id, nombre: row.app_users?.nombre ?? '', status: row.app_users?.status } : null;
+  const row = await run(supabase().from('vinculos_whatsapp').select('user_id, app_users(nombre, status, relink_required)').eq('phone', phone).maybeSingle());
+  return row ? { userId: row.user_id, nombre: row.app_users?.nombre ?? '', status: row.app_users?.relink_required ? 'NEEDS_RELINK' : row.app_users?.status } : null;
 }
 
 // Marks the code used (atomic: only one caller wins) and returns the owner's user id, or null.
@@ -53,3 +53,8 @@ export async function failedAttempts(phone) {
   return (await run(supabase().from('whatsapp_intentos').select('id').eq('phone', phone).gt('created_at', since))).length;
 }
 export const recordFail = (phone) => run(supabase().from('whatsapp_intentos').insert({ phone }));
+
+export async function getPhoneByUser(userId) {
+  const row = await run(supabase().from('vinculos_whatsapp').select('phone').eq('user_id', userId).maybeSingle());
+  return row?.phone ?? null;
+}

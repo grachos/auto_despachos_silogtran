@@ -89,11 +89,11 @@ async function fetchUsers() {
 async function loadUsers() {
   const b = await fetchUsers();
   if (!b) return;
-  kpi($('usersKpis'), [[b.resumen.total, 'Usuarios'], [b.resumen.activos, 'Activos'], [b.resumen.vinculados, 'Con WhatsApp vinculado']]);
+  kpi($('usersKpis'), [[b.resumen.total, 'Usuarios'], [b.resumen.activos, 'Activos'], [b.resumen.vinculados, 'Con WhatsApp vinculado'], [b.resumen.requierenLink ?? 0, 'Requieren link nuevo']]);
   renderTable($('usersTable'), [
     { h: 'Nombre', v: (u) => u.nombre },
     { h: 'Usuario Silogtran', v: (u) => dash(u.silogUser) },
-    { h: 'Estado', v: (u) => badge(u.estado === 'ACTIVE' ? 'Activo' : u.estado === 'PENDING' ? 'Pendiente' : u.estado, u.estado === 'ACTIVE' ? 'ok' : 'warn') },
+    { h: 'Estado', v: (u) => badge({ ACTIVE: 'Activo', PENDING: 'Pendiente', NEEDS_RELINK: 'Requiere link nuevo', DISABLED: 'Deshabilitado' }[u.estado] || u.estado, { ACTIVE: 'ok', NEEDS_RELINK: 'err' }[u.estado] || 'warn') },
     { h: 'WhatsApp', v: (u) => badge(u.whatsapp === 'VINCULADO' ? 'Vinculado' : 'Desvinculado', u.whatsapp === 'VINCULADO' ? 'ok' : 'mute') },
     { h: 'Teléfono', v: (u) => dash(u.telefono) },
     { h: 'Vinculado desde', v: (u) => when(u.vinculadoDesde) },
