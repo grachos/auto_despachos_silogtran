@@ -61,11 +61,15 @@ const CONFIRM_ERRORS = {
 export function createFlow(d) {
   const log = (what, e) => console.error(`[ai] ${what}:`, e?.code || e?.name || 'error'); // codes only, never message text
 
-  async function safe(phone, fn) {
+  // One start line and one end line per background turn (kind + duration only; never message content).
+  async function safe(phone, kind, fn) {
+    const t0 = Date.now();
+    console.log(`[ai] start ${kind}`);
     try {
       await fn();
+      console.log(`[ai] done ${kind} ${Date.now() - t0}ms`);
     } catch (e) {
-      log('failed', e);
+      log(`failed ${kind} after ${Date.now() - t0}ms`, e);
       try { await d.send(phone, T.apology); } catch (e2) { log('apology not sent', e2); }
     }
   }
@@ -117,7 +121,7 @@ export function createFlow(d) {
 
   async function onText({ phone, link, text }) {
     if (!d.aiAvailable()) return void (await d.send(phone, T.noAi(link.nombre)));
-    await safe(phone, async () => {
+    await safe(phone, 'text', async () => {
       if ((await d.ia.usageCount(link.userId, 'msg')) >= LIMITS.msg) return void (await d.send(phone, T.limit));
       await underChatLock(phone, link, async () => {
         if (await typedAnswer(phone, link, text)) return;
@@ -129,7 +133,7 @@ export function createFlow(d) {
 
   async function onVoice({ phone, link, mediaId }) {
     if (!d.aiAvailable()) return void (await d.send(phone, T.noVoice));
-    await safe(phone, async () => {
+    await safe(phone, 'voice', async () => {
       if ((await d.ia.usageCount(link.userId, 'voz')) >= LIMITS.voz) return void (await d.send(phone, T.limit));
       await underChatLock(phone, link, async () => {
         await d.ia.recordUsage(link.userId, 'voz');
@@ -161,7 +165,7 @@ export function createFlow(d) {
     if (!m) return void (await d.send(phone, T.buttonUnknown));
     const [, kind, id] = m;
     const uid = link.userId;
-    await safe(phone, () =>
+    await safe(phone, `button:${kind}`, () =>
       underChatLock(phone, link, async () => {
         if (kind === 'canc') return void (await d.send(phone, (await d.ia.cancelPending(id, uid)) ? T.cancelled : await explain(id, uid)));
         const row = await d.ia.claimPending(id, uid); // atomic: owner + still PENDING + not expired + latest (older ones are SUPERSEDED)
