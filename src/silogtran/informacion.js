@@ -35,15 +35,46 @@ export function readAfiliado(form) {
   };
 }
 
+// Alternative vehicle source: "Empresas" tab (pre-registered vehicle+trailer+driver combos of an affiliated company).
+// Type the plate, pick the exact combo, press "Aceptar" (ValidationGroup RequeridosEmpresa). The affiliate type
+// (tipafi_codigo) is filled by Silogtran with the vehicle's real value, same as the other source.
+async function selectFromEmpresas(form, plate) {
+  const notFound = () => new ApiError('VEHICLE_NOT_ACTIVE', `El vehículo ${plate} no está activo ni aparece en la pestaña Empresas de Silogtran.`, { status: 404 });
+  const name = `${P}vehiculo_placa_empresa`;
+  if (!(name in form.fields)) throw notFound();
+  const attr = 'ctl0_mainmodule_vehiculo_placa_empresa';
+  const exact = (await form.suggest(name, plate)).filter((r) => norm(r.attrs[attr]) === norm(plate));
+  if (!exact.length) throw notFound();
+  if (exact.length > 1) {
+    throw new ApiError('AMBIGUOUS_OPTION', `Hay varios registros de "${plate}" en la pestaña Empresas (distinto remolque o conductor).`, {
+      status: 409,
+      extra: { options: exact.map((r) => ({ placa: r.attrs[attr], remolque: r.attrs.ctl0_mainmodule_trailer_placa_empresa, conductor: `${r.attrs.ctl0_mainmodule_tercero_nombre1 ?? ''} ${r.attrs.ctl0_mainmodule_tercero_apellido1 ?? ''}`.trim() })) },
+    });
+  }
+  const pick = exact[0];
+  form.select(pick);
+  const target = form.buttonByGroup('RequeridosEmpresa', `${P}Aceptar_empresa`);
+  await form.postback(target, { [target]: 'Aceptar' });
+  const filled = form.value('ctl0_MainModule_vehiculo_codigo');
+  if (!filled) throw new ApiError('VEHICLE_SELECT_FAILED', 'Silogtran no cargó los datos del vehículo desde la pestaña Empresas.', { status: 502, detail: plate });
+  return {
+    ...readAfiliado(form),
+    placa: filled,
+    clase: pick.attrs.ctl0_mainmodule_claveh_nombre || null,
+    carroceria: pick.attrs.ctl0_mainmodule_carroceria_nombre || null,
+    trailer: form.value('ctl0_MainModule_trailer_codigo') || pick.attrs.ctl0_mainmodule_trailer_placa_empresa || null,
+    conductor: form.value('ctl0_MainModule_tercero_codigo_conductor') || null,
+    fuente: 'empresas',
+  };
+}
+
 async function selectVehicle(form, placa) {
   const name = need(form, `${P}vehiculo_codigo_seleccion_activo`);
   const attr = 'ctl0_mainmodule_vehiculo_codigo_seleccion_activo';
   const plate = String(placa || '').trim().toUpperCase();
   if (!plate) throw new ApiError('INVALID_PARAMETER', 'Falta la placa del vehículo.', { status: 400 });
   const results = await form.suggest(name, plate);
-  if (!results.length) {
-    throw new ApiError('VEHICLE_NOT_ACTIVE', `El vehículo ${plate} no está activo o no está registrado en Silogtran.`, { status: 404 });
-  }
+  if (!results.length) return selectFromEmpresas(form, plate); // not an active fleet vehicle: try the "Empresas" tab
   const exact = results.filter((r) => norm(r.attrs[attr]) === norm(plate));
   const pick = exact.length === 1 ? exact[0] : results.length === 1 ? results[0] : null;
   if (!pick) {
