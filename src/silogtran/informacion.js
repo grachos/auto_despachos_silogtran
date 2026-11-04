@@ -46,7 +46,7 @@ export const CONFIRMADO_POR = 'ctl0$MainModule$confirmado_por';
 // first tab ("Vehículos Activos") is active. Finds the panel whose view contains `controlName` and marks that view active.
 export function tabPanels(form) {
   const out = [];
-  for (const m of String(form.html ?? '').matchAll(/TTabPanel\((\{[^;]*?\})\)/g)) {
+  for (const m of String(form.html ?? '').matchAll(/TTabPanel\(\s*(\{[\s\S]*?\})\s*\)/g)) {
     let o = null;
     try { o = JSON.parse(m[1]); } catch { /* tolerate non-JSON option literals */ }
     const id = o?.ID ?? /['"]ID['"]\s*:\s*['"]([^'"]+)/.exec(m[1])?.[1];
