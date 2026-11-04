@@ -170,3 +170,10 @@ Flujo deseado: el admin crea un usuario y se le asigna un **link de un solo uso 
 
 ### "Preparar de nuevo" (M5, 2026-11-04)
 - Al pulsar un botón de confirmación vencido (o `TOKEN_EXPIRED`/`TOKEN_INVALID`/`ANTICIPO_CHANGED` al confirmar) el bot ofrece el botón `rep:<uuid>` «Preparar de nuevo». Al pulsarlo: solo el dueño; rechaza resúmenes `USED`/`CANCELLED`/`PROCESSING`; si hay un resumen más reciente no hace nada; si el resumen sigue vigente reenvía sus botones; si alguna cita ya pasó pide fechas nuevas. Si no, relee `input`/`numero`/`item` del payload del token guardado (`peekToken`, sin verificar firma: es nuestro propio dato en BD) y vuelve a ejecutar `prepareDispatch` + `createPending` con los mismos datos. **Nunca confirma**: el usuario debe pulsar los botones del resumen nuevo. Sin IA ni migración.
+
+## Tipo de afiliado: INTERNO / EXTERNO (incrementos 1-2, 2026-11-04)
+- `preparar` lee del formulario `tipafi_codigo` (1 EXTERNO, 2 INTERNO; EMPRESA no se usa) y devuelve `tipoAfiliado`, `beneficiarios[{id,texto,rol,seleccionado}]` (select `tercero_beneficiario_anticipo`) y `tipoOperacion`.
+- `confirmar` acepta `anticipo: "total"|"cero"|<entero>` y `beneficiario` (id de tercero). `ANTICIPO_EXCEEDS` si supera el calculado (se valida con el token, antes de tocar Silogtran).
+  - **INTERNO**: beneficiario = conductor (no se toca); solo total/cero (`ANTICIPO_NOT_ALLOWED` si es otro valor); banco BANCOLOMBIA PROPIOS.
+  - **EXTERNO**: `beneficiario` obligatorio y de la lista (`BENEFICIARY_REQUIRED` / `BENEFICIARY_INVALID`); cualquier valor 0..calculado; banco BANCOLOMBIA TERCEROS. Valor parcial = campo `Anticipo` + callback + fila de pago por ese valor (**sin verificar aún contra Silogtran real**).
+- Pendiente: la IA de WhatsApp (incremento 3) aún no pregunta beneficiario/valor: un externo por WhatsApp responde `BENEFICIARY_REQUIRED`. Pestaña «Empresas» (incremento 4) sin soportar.

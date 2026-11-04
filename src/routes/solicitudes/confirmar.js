@@ -1,4 +1,4 @@
-// POST /api/solicitudes/:numero/confirmar { token, anticipo: "total"|"cero", usuario? } — SAVES the dispatch in Silogtran.
+// POST /api/solicitudes/:numero/confirmar { token, anticipo: "total"|"cero"|<entero>, beneficiario?, usuario? } — SAVES the dispatch in Silogtran.
 // The token is bound to the user that prepared it; `usuario`, if sent, must match.
 import { requireApiKey } from '../../http/auth.js';
 import { sendError } from '../../http/errors.js';
