@@ -35,21 +35,18 @@ export function readAfiliado(form) {
   };
 }
 
-// "Confirmado Por" (SELECCIONE UNO / EMPRESA / NORMAL) is never chosen by the person: the Silogtran UI sets it from the tab
-// used to load the vehicle (Vehículos Activos -> NORMAL, Empresas -> EMPRESA). The browser does it client-side, so over HTTP
-// it stays NORMAL after "Aceptar". We locate the select by its options (the control name is unknown) and replicate the
-// Empresas behaviour; if it cannot be found we fail BEFORE saving instead of recording the wrong value.
-export function setConfirmedByEmpresa(form) {
-  const $ = form.$();
-  const names = $('select').toArray().filter((s) => {
-    const texts = $(s).find('option').toArray().map((o) => norm($(o).text()));
-    return texts.includes('empresa') && texts.includes('normal') && texts.every((t) => ['empresa', 'normal', 'seleccione uno'].includes(t));
-  }).map((s) => s.attribs.name).filter(Boolean);
-  if (names.length !== 1 || !(names[0] in form.fields)) {
-    throw new ApiError('CONFIRMED_BY_FIELD_MISSING', 'No encontré el campo "Confirmado Por" de Silogtran para despachar por la pestaña Empresas; no se grabó nada.', { status: 502, detail: `candidatos=${names.length}` });
+// "Confirmado Por" (ctl0$MainModule$confirmado_por: "SELECCIONE UNO" | "EMPRESA" | "NORMAL"; no validator) is never chosen
+// by the person: the Silogtran UI fills it from the tab used to load the vehicle (Vehículos Activos -> NORMAL, Empresas ->
+// EMPRESA) in the browser, which an HTTP client does not replicate. We always set it explicitly, and again right before
+// "Grabar" (later postbacks re-render the page). If the field is missing we fail BEFORE saving.
+export const CONFIRMADO_POR = 'ctl0$MainModule$confirmado_por';
+export function setConfirmadoPor(form, fuente = 'activos') {
+  if (!(CONFIRMADO_POR in form.fields)) {
+    throw new ApiError('CONFIRMED_BY_FIELD_MISSING', 'No encontré el campo "Confirmado Por" de Silogtran; no se grabó nada.', { status: 502 });
   }
-  const opt = resolveOption(selectOptions(form, names[0]), 'EMPRESA', 'Confirmado Por');
-  form.fields[names[0]] = opt.value;
+  const opt = resolveOption(selectOptions(form, CONFIRMADO_POR), fuente === 'empresas' ? 'EMPRESA' : 'NORMAL', 'Confirmado Por');
+  form.fields[CONFIRMADO_POR] = opt.value;
+  return opt.value;
 }
 
 // Alternative vehicle source, ONLY when the person asks for it (fuente="empresas"): "Empresas" tab (pre-registered vehicle+trailer+driver combos of an affiliated company).
@@ -74,7 +71,6 @@ async function selectFromEmpresas(form, plate) {
   await form.postback(target, { [target]: 'Aceptar' });
   const filled = form.value('ctl0_MainModule_vehiculo_codigo');
   if (!filled) throw new ApiError('VEHICLE_SELECT_FAILED', 'Silogtran no cargó los datos del vehículo desde la pestaña Empresas.', { status: 502, detail: plate });
-  setConfirmedByEmpresa(form);
   return {
     ...readAfiliado(form),
     placa: filled,
@@ -218,5 +214,6 @@ export async function fillInformacion(form, { placa, fuente, origen, destino, ti
   const fechas = await setDatesAndVolume(form, now);
   const tipo = setManifestType(form, tipoManifiesto, defaultManifestType(origen, destino));
   const tipoOperacion = await ensureTipoOperacion(form, vehiculo.tipoAfiliado);
-  return { vehiculo, ruta, fechas, tipoManifiesto: tipo, tipoOperacion };
+  const confirmadoPor = setConfirmadoPor(form, fuente);
+  return { vehiculo, ruta, fechas, tipoManifiesto: tipo, tipoOperacion, confirmadoPor };
 }

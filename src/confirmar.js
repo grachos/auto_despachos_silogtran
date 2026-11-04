@@ -10,6 +10,7 @@ import { runPreparation } from './silogtran/preparar.js';
 import { clearPending } from './silogtran/despacho.js';
 import { addAnticipoPago, setAnticipoCero, setAnticipoValor, setBeneficiario } from './silogtran/anticipo.js';
 import { postGenerar, readRndc } from './silogtran/grabar.js';
+import { setConfirmadoPor } from './silogtran/informacion.js';
 
 export function parseConfirmar(body) {
   const b = body && typeof body === 'object' ? body : {};
@@ -58,7 +59,7 @@ function buildMessage(documents, rndc) {
 
 const realDeps = {
   verifyToken, resolveActorId, assertActorActive, withLock, sessionKey, claimConfirmation, markConfirmation,
-  openActorSession, runPreparation, clearPending, setAnticipoCero, setAnticipoValor, setBeneficiario, addAnticipoPago, postGenerar, readRndc,
+  openActorSession, runPreparation, clearPending, setAnticipoCero, setAnticipoValor, setBeneficiario, addAnticipoPago, postGenerar, readRndc, setConfirmadoPor,
 };
 
 export async function confirmDispatch(numero, { token, anticipo, beneficiario, usuario }, d = realDeps) {
@@ -109,6 +110,7 @@ async function runConfirmation(numero, { payload, uid, plan, beneficiario }, d) 
         if (plan.mode === 'valor') await d.setAnticipoValor(form, plan.value);
         if (plan.value > 0) await d.addAnticipoPago(form, plan.value, rules.bank);
       }
+      d.setConfirmadoPor(form, payload.input.fuente); // re-applied last: the anticipo postbacks re-render the page
     });
 
     saving = true;

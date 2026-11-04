@@ -64,6 +64,30 @@ const trunc = (v, n) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').slice(0
 
 // Affiliate rules at prepare time. EXTERNO: beneficiary (conductor|poseedor, from Silogtran's list) and value (0..calculated)
 // are ALWAYS asked, never assumed. INTERNO: nothing to ask (driver is the beneficiary; total/zero via buttons).
+// Spanish amounts written in words and/or digits ("trescientos mil", "un millón doscientos mil", "1 millón 200 mil",
+// "cuatrocientos noventa y cinco mil", "medio millón") -> every number found in the text.
+const UNITS = { cero: 0, un: 1, uno: 1, una: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, trece: 13, catorce: 14, quince: 15, dieciseis: 16, diecisiete: 17, dieciocho: 18, diecinueve: 19, veinte: 20, veintiun: 21, veintiuno: 21, veintiuna: 21, veintidos: 22, veintitres: 23, veinticuatro: 24, veinticinco: 25, veintiseis: 26, veintisiete: 27, veintiocho: 28, veintinueve: 29, treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70, ochenta: 80, noventa: 90, cien: 100, ciento: 100, doscientos: 200, doscientas: 200, trescientos: 300, trescientas: 300, cuatrocientos: 400, cuatrocientas: 400, quinientos: 500, quinientas: 500, seiscientos: 600, seiscientas: 600, setecientos: 700, setecientas: 700, ochocientos: 800, ochocientas: 800, novecientos: 900, novecientas: 900 };
+export function spanishNumbers(text) {
+  const out = [];
+  const words = String(text ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/(\d)[.,](?=\d{3}\b)/g, '$1').split(/[^a-z0-9]+/).filter(Boolean);
+  let total = 0, cur = 0, any = false;
+  const flush = () => { if (any) out.push(total + cur); total = 0; cur = 0; any = false; };
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    if (/^\d+$/.test(w)) { if (any && cur) flush(); cur += Number(w); any = true; }
+    else if (w in UNITS) { cur += UNITS[w]; any = true; }
+    else if (w === 'mil' && any) { total += (cur || 1) * 1000; cur = 0; }
+    else if (w === 'mil') { total = 1000; any = true; }
+    else if (/^millon(es)?$/.test(w)) { total = (total + (cur || 1)) * 1_000_000; cur = 0; any = true; }
+    else if (w === 'medio' && /^millon/.test(words[i + 1] ?? '')) { out.push(500_000); i++; }
+    else if (w === 'y' && any) continue;
+    else if (w === 'de' && any && /^pesos?$/.test(words[i + 1] ?? '')) continue;
+    else flush();
+  }
+  flush();
+  return out;
+}
+
 const nrm = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 // The beneficiary and the value must come from the CURRENT message of the person, never from older turns of the history
 // (the model reused «0 a conductor» from an earlier dispatch of the same plate). Checked against the message text itself.
@@ -74,6 +98,7 @@ export function statedInMessage(userText, { rol, anticipo, max }) {
   if (anticipo === 0) valueOk = /(^|[^\d])0([^\d]|$)|cero|sin anticipo|ningun|nada/.test(t);
   else {
     if (anticipo === max && /total|completo|todo/.test(t)) valueOk = true;
+    if (spanishNumbers(userText).some((n) => n === anticipo || (n < 1000 && n * 1000 === anticipo))) valueOk = true;
     for (const m of t.matchAll(/(\d[\d.,]*)\s*(millon(?:es)?|mil|k)?/g)) {
       const n = Number(m[1].replace(/[.,]/g, ''));
       const mult = m[2]?.startsWith('millon') ? 1_000_000 : m[2] ? 1000 : 1;
