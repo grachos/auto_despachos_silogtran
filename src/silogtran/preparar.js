@@ -35,6 +35,9 @@ export async function runPreparation(client, numero, input, { keepOpen = false }
       const summary = {
         solicitud: { numero, item: chosen.item, origen: chosen.origen, destino: chosen.destino },
         vehiculo: { placa: info.vehiculo.placa, clase: info.vehiculo.clase, carroceria: info.vehiculo.carroceria },
+        tipoAfiliado: info.vehiculo.tipoAfiliado,
+        beneficiarios: info.vehiculo.beneficiarios,
+        tipoOperacion: info.vehiculo.tipoOperacion,
         trailer: info.vehiculo.trailer,
         conductor: info.vehiculo.conductor,
         ruta: info.ruta.ruta,

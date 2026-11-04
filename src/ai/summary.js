@@ -12,6 +12,7 @@ export function buildSummaryText(r) {
     '📋 *Resumen del despacho*',
     `Solicitud: ${clean(r.solicitud.numero)} (ítem ${clean(r.solicitud.item)}) · ${clean(r.solicitud.origen)} → ${clean(r.solicitud.destino)}`,
     `Vehículo: ${clean(r.vehiculo.placa)} · ${clean(r.vehiculo.clase)} · ${clean(r.vehiculo.carroceria)}`,
+    ...(r.tipoAfiliado ? [`Afiliado: ${clean(r.tipoAfiliado)}`] : []),
     `Remolque: ${clean(r.trailer)}`,
     `Conductor: ${clean(r.conductor)}`,
     `Ruta: ${clean(r.ruta)}`,

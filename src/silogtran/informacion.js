@@ -16,6 +16,25 @@ export const parseMoney = (s) => {
   return String(s ?? '').trim() && Number.isFinite(n) ? n : null;
 };
 
+// Read-only: affiliate type of the loaded vehicle (hidden tipafi_codigo: 1 EXTERNO, 2 INTERNO; 3 EMPRESA is never
+// used), the anticipo beneficiary options and the auto-selected operation type.
+const AFILIADO = { 1: 'EXTERNO', 2: 'INTERNO', 3: 'EMPRESA' };
+export function readAfiliado(form) {
+  const $ = form.$();
+  const code = form.value('ctl0_MainModule_tipafi_codigo') || ($('#ctl0_MainModule_tipafi_codigo option[selected]').attr('value') ?? '').trim();
+  const bene = $('select[name="ctl0$MainModule$tercero_beneficiario_anticipo"] option')
+    .toArray()
+    .map((o) => ({ id: (o.attribs.value ?? '').trim(), texto: $(o).text().replace(/\s+/g, ' ').trim(), seleccionado: o.attribs.selected !== undefined }))
+    .filter((o) => o.id !== '')
+    .map((o) => ({ ...o, rol: /POSEEDOR|PROPIETARIO/i.test(o.texto) ? 'poseedor' : /CONDUCTOR/i.test(o.texto) ? 'conductor' : 'otro' }));
+  const op = $('select[name="ctl0$MainModule$tipo_operacion"] option[selected]');
+  return {
+    tipoAfiliado: AFILIADO[code] ?? null,
+    beneficiarios: bene,
+    tipoOperacion: op.length ? { codigo: (op.attr('value') ?? '').trim(), nombre: op.text().trim() } : null,
+  };
+}
+
 async function selectVehicle(form, placa) {
   const name = need(form, `${P}vehiculo_codigo_seleccion_activo`);
   const attr = 'ctl0_mainmodule_vehiculo_codigo_seleccion_activo';
@@ -40,6 +59,7 @@ async function selectVehicle(form, placa) {
     throw new ApiError('VEHICLE_SELECT_FAILED', 'Silogtran no cargó los datos del vehículo seleccionado.', { status: 502, detail: plate });
   }
   return {
+    ...readAfiliado(form),
     placa: filled,
     clase: pick.attrs.ctl0_mainmodule_claveh_nombre || null,
     carroceria: pick.attrs.ctl0_mainmodule_carroceria_nombre || null,
