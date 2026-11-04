@@ -46,12 +46,12 @@ Pantallas: `/invitacion/<token>`, `/vincular`, `/manual` y `/privacidad` (públi
 
 Endpoints del panel (cookie de administrador o `x-api-key` = `ADMIN_KEY`): `POST /api/admin/login`, `GET /api/admin/usuarios`, `GET /api/admin/reporte`, `POST /api/admin/rndc-actualizar`, `POST /api/admin/invitaciones`.
 
-Siguientes pasos: webhook de WhatsApp, API por usuario e IA (ver roadmap en `CLAUDE.md`).
+El asistente de IA (OpenAI) atiende por WhatsApp: texto y notas de voz; confirma solo con botones. Ver `CLAUDE.md`.
 
 ## Variables de entorno
 Ver [`.env.example`](./.env.example) (sin valores). En Vercel, marcarlas para **Production** (y Preview si se prueba ahí) y volver a desplegar tras cambiarlas.
 
-`SILOG_BASE_URL`, `SILOG_USER`, `SILOG_PASSWORD`, `API_KEY`, `TOKEN_SECRET`, `ENCRYPTION_KEY`, `ADMIN_KEY`, `WHATSAPP_NUMBER`, `WHATSAPP_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_PHONE_ID`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (clave `service_role`/secret, nunca la `anon`/publishable).
+`SILOG_BASE_URL`, `SILOG_USER`, `SILOG_PASSWORD`, `API_KEY`, `TOKEN_SECRET`, `ENCRYPTION_KEY`, `ADMIN_KEY`, `WHATSAPP_NUMBER`, `WHATSAPP_TOKEN`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_PHONE_ID`, `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` (clave `service_role`/secret, nunca la `anon`/publishable).
 
 ## Estructura
 ```

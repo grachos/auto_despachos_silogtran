@@ -8,12 +8,12 @@
 <div class="card">
 <h2 class="first">Cómo funciona</h2>
 <ol>
-<li>Escribes al asistente por WhatsApp, con tus palabras, qué solicitud quieres despachar y con qué vehículo.</li>
+<li>Escribes al asistente por WhatsApp, con tus palabras o con una <b>nota de voz</b>, qué solicitud quieres despachar y con qué vehículo.</li>
 <li>El asistente te pregunta lo que falte y te avisa si hay algo que no puede omitir.</li>
-<li>Antes de grabar te muestra un <b>resumen</b> (vehículo, conductor, ruta, fechas y anticipo) y te pide confirmación.</li>
-<li>Cuando confirmas, el despacho se graba en Silogtran y recibes la <b>remesa</b>, el <b>manifiesto</b> y el estado frente al Ministerio.</li>
+<li>Antes de grabar te muestra un <b>resumen</b> (vehículo, conductor, ruta, fechas y anticipo) con <b>botones</b>: <i>Anticipo total</i>, <i>Anticipo cero</i> y <i>Cancelar</i>.</li>
+<li>Cuando pulsas un botón de confirmar, el despacho se graba en Silogtran y recibes la <b>remesa</b>, el <b>manifiesto</b> y el estado frente al Ministerio.</li>
 </ol>
-<p class="muted">Nada se graba sin tu confirmación explícita.</p>
+<p class="muted">Nada se graba sin que pulses un botón de confirmar. Escribir o decir "sí" no confirma: el asistente te volverá a mostrar los botones.</p>
 </div>
 
 <h2>Qué datos necesita</h2>
@@ -49,9 +49,13 @@
 <div class="bubble b">Perfecto. Para la solicitud 0101072807 (Santa Marta → Santa Marta, con contenedor) me falta: cita de cargue, cita de descargue, número de contenedor y BL.</div>
 <div class="bubble u">Cargue el 8 de noviembre a las 2 pm, descargue el 10 a las 4 pm. Contenedor WHSU545823-0, BL ABC123</div>
 <div class="bubble b">Resumen: vehículo KNL058 · conductor Edwin Jiménez · ruta Santa Marta – Santa Marta · manifiesto municipal · anticipo sugerido $12.896. ¿Lo confirmo con anticipo total o cero?</div>
-<div class="bubble u">Total, confírmalo</div>
-<div class="bubble b">Se despachó a satisfacción. Remesa 0101227136, Manifiesto 0101226140. Sin migrar al Ministerio.</div>
+<div class="bubble b">📋 Resumen del despacho · Solicitud 0101072807 · Vehículo KNL058 · Conductor Edwin Jiménez · Cita de cargue: domingo 8 de noviembre, 2:00 p. m. · Cita de descargue: martes 10 de noviembre, 4:00 p. m. · Anticipo sugerido $12.896 · [Anticipo total] [Anticipo cero] [Cancelar]</div>
+<div class="bubble u">(pulsa «Anticipo total»)</div>
+<div class="bubble b">✅ ¡Despacho confirmado! Orden de cargue 0101077410 · Remesa 0101227136 · Manifiesto 0101226140 · Ministerio: sin migrar todavía (puede tardar).</div>
 </div>
+
+<h2>Notas de voz</h2>
+<p>Puedes dictar el despacho en una nota de voz. El asistente la transcribe y te responde primero con lo que entendió ("Entendí: …") para que veas si alguna placa o número se escuchó mal. Si algo está mal, corrígelo antes de confirmar: el resumen con botones siempre muestra los datos tal como los encontró Silogtran.</p>
 
 <h2>Varios despachos a la vez</h2>
 <p>También puedes enviar una tabla con varios despachos (una fila por solicitud, con placa, citas y los demás datos). El asistente la interpreta, te muestra qué entendió y qué falta, y espera tu confirmación antes de grabar.</p>
@@ -66,7 +70,7 @@
 <h2>Cosas a tener en cuenta</h2>
 <ul>
 <li>Las <b>citas de cargue y descargue siempre son obligatorias</b>; el asistente no las inventa.</li>
-<li>El resumen que recibes antes de confirmar vale <b>15 minutos</b>. Si tardas más, el asistente vuelve a prepararlo.</li>
+<li>Los botones del resumen valen <b>15 minutos</b> y solo sirve el <b>resumen más reciente</b>. Si tardas más, o pides otro despacho, pídelo de nuevo.</li>
 <li>Si el anticipo cambia entre el resumen y la confirmación, el asistente te avisa y te pide confirmar de nuevo.</li>
 <li>Si Silogtran no responde con claridad al grabar, el asistente <b>no reintenta solo</b>: te pedirá verificar en Silogtran antes de repetir, para evitar despachos duplicados.</li>
 <li>Una solicitud se procesa de a una vez.</li>
