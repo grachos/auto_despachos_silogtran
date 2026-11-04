@@ -113,6 +113,11 @@ async function runConfirmation(numero, { payload, uid, plan, beneficiario }, d) 
       d.setConfirmadoPor(form, payload.input.fuente); // re-applied last: the anticipo postbacks re-render the page
     });
 
+    if (payload.input.fuente === 'empresas') {
+      // Verification trail for the Empresas source (catalog codes and filled-flags only; no personal data).
+      const f = form.fields;
+      console.log(`[confirm] empresas confirmado_por=${f['ctl0$MainModule$confirmado_por'] ?? '-'} tab=${f[form.activeTab?.name] ?? '-'} vehEmpresa=${f['ctl0$MainModule$fieldHdVehEmpresaID'] ? 'filled' : 'empty'} enturnamiento=${f['ctl0$MainModule$enturnamiento_codigo'] ? 'filled' : 'empty'}`);
+    }
     saving = true;
     const tSave = Date.now();
     const saved = await client.enqueue(() => d.postGenerar(client, form));
