@@ -38,6 +38,7 @@ export async function runAgentTurn({ nombre, text, history = [], now = new Date(
           try {
             const out = await exec(args);
             if (out.pending) return { kind: 'pending', ...out.pending };
+            if (out.reply) return { kind: 'text', text: out.reply };
             result = out.result;
           } catch (e) {
             const te = toolError(e);

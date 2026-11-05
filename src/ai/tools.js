@@ -109,6 +109,29 @@ export function statedInMessage(userText, { rol, anticipo, max }) {
   return { roleOk, valueOk };
 }
 
+const pesos = (n) => `$${Number(n).toLocaleString('es-CO')}`;
+
+// Reads «A cero», «b 500 mil», «b total», «valor total al poseedor» from the CURRENT message: A = conductor, B = poseedor.
+// Returns only what it is sure of; amounts are trusted only if the message holds a single number (it may also carry a request number).
+export function parseAnticipoReply(userText, max) {
+  const t = nrm(userText).trim();
+  const out = {};
+  const letter = /^([ab])(?=[\s:.,)-]|$)/.exec(t) ?? /(?:^|\s)([ab])\s+(?:cero|total|completo|todo|\d)/.exec(t);
+  if (letter) out.rol = letter[1] === 'a' ? 'conductor' : 'poseedor';
+  else if (/\b(pose\w*|propie\w*|duen\w*)/.test(t)) out.rol = 'poseedor';
+  else if (/\b(cond\w*|chofer|chofe\w*)/.test(t)) out.rol = 'conductor';
+  const nums = spanishNumbers(String(userText).replace(/\b0\d{5,}\b/g, ' ')); // request numbers (01…) are not amounts
+  if (/\b(total|completo|todo)\b/.test(t)) out.anticipo = max;
+  else if (/\b(cero|sin anticipo|ninguno|nada)\b/.test(t)) out.anticipo = 0;
+  else if (nums.length === 1 && t.split(/\s+/).length <= 6) out.anticipo = nums[0] < 1000 && nums[0] > 0 ? nums[0] * 1000 : nums[0];
+  return out;
+}
+
+// Deterministic question for externals (the model used to ask without the maximum, costing extra turns).
+export function askExternalText(max, prefix = '') {
+  return `${prefix}Vehículo externo. *Anticipo total = ${pesos(max)}*\n\n¿A quién va el anticipo?\n*A* = conductor\n*B* = poseedor\n\nResponde con la letra y el valor. Ej.: A cero · B 500 mil · B total`;
+}
+
 export function chooseExternal(resumen, args, userText) {
   if (resumen.tipoAfiliado !== 'EXTERNO') {
     const asked = args.beneficiario != null || args.anticipo != null;
@@ -116,18 +139,21 @@ export function chooseExternal(resumen, args, userText) {
   }
   const max = resumen.anticipoSugerido;
   const opts = (resumen.beneficiarios ?? []).filter((o) => o.rol === 'conductor' || o.rol === 'poseedor');
+  const said0 = userText !== undefined ? parseAnticipoReply(userText, max) : {};
+  if (said0.rol || said0.anticipo !== undefined) args = { ...args, beneficiario: said0.rol ?? args.beneficiario, anticipo: said0.anticipo ?? args.anticipo };
   const role = String(args.beneficiario ?? '').trim().toLowerCase();
   const ben = opts.find((o) => o.rol === role);
   const view = { afiliado: 'EXTERNO', beneficiariosDisponibles: opts.map((o) => o.rol), anticipoMaximo: max };
   let falta = [...(ben ? [] : ['beneficiario']), ...(args.anticipo == null ? ['anticipo'] : [])];
   if (!falta.length && userText !== undefined && Number.isSafeInteger(args.anticipo) && args.anticipo >= 0 && args.anticipo <= max) {
     const said = statedInMessage(userText, { rol: ben.rol, anticipo: args.anticipo, max });
-    if (!said.roleOk) falta.push('beneficiario');
-    if (!said.valueOk) falta.push('anticipo');
+    // Parts parsed from the current message by code (said0) are already verified; only the model's own values need checking.
+    if (!said.roleOk && !said0.rol) falta.push('beneficiario');
+    if (!said.valueOk && said0.anticipo === undefined) falta.push('anticipo');
   }
-  if (falta.length) return { ask: { ok: true, preparado: false, ...view, falta, instruccion: 'Vehículo EXTERNO: pregunta a la persona lo que falta (a quién va el anticipo y cuánto, de 0 a anticipoMaximo) y vuelve a llamar a preparar_despacho con los mismos datos. No supongas.' } };
+  if (falta.length) return { reply: askExternalText(max), ask: { ok: true, preparado: false, ...view, falta, instruccion: 'Vehículo EXTERNO: pregunta a la persona lo que falta (a quién va el anticipo y cuánto, de 0 a anticipoMaximo) y vuelve a llamar a preparar_despacho con los mismos datos. No supongas.' } };
   if (!Number.isSafeInteger(args.anticipo) || args.anticipo < 0 || args.anticipo > max) {
-    return { ask: { ok: false, preparado: false, code: 'ANTICIPO_EXCEEDS', ...view, message: `El anticipo debe estar entre 0 y ${max} pesos.` } };
+    return { reply: askExternalText(max, `Ese valor supera el máximo (${pesos(max)}).\n\n`), ask: { ok: false, preparado: false, code: 'ANTICIPO_EXCEEDS', ...view, message: `El anticipo debe estar entre 0 y ${max} pesos.` } };
   }
   return { eleccion: { beneficiario: { id: ben.id, rol: ben.rol, texto: ben.texto }, anticipo: args.anticipo } };
 }
@@ -160,6 +186,7 @@ export function makeExecutors({ userId, send, userText, services = { consultSoli
       await send('⏳ Preparando el despacho en Silogtran… puede tardar unos segundos.');
       const r = await services.prepareDispatch(userId, args.numero, args);
       const ext = chooseExternal(r.resumen, args, userText);
+      if (ext.reply) return { result: ext.ask, reply: ext.reply }; // fixed text built by code (includes the maximum)
       if (ext.ask) return { result: ext.ask }; // nothing pending: the model asks the person and calls again
       if (ext.eleccion) r.resumen.eleccion = ext.eleccion;
       // The token goes to the pending row; the model only learns that it was prepared.
