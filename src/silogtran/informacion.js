@@ -108,6 +108,9 @@ async function selectFromEmpresas(form, plate) {
   await form.postback(target, { [target]: 'Aceptar', [`${P}IDLockHidden_ctl0_MainModule_Aceptar_empresa`]: 'true' });
   const filled = form.value('ctl0_MainModule_vehiculo_codigo');
   if (!filled) throw new ApiError('VEHICLE_SELECT_FAILED', 'Silogtran no cargó los datos del vehículo desde la pestaña Empresas.', { status: 502, detail: plate });
+  // What the SERVER put in these catalog fields right after "Aceptar" (before we touch them): catalog labels only.
+  const after = (n) => { const o = selectOptions(form, `${P}${n}`).find((x) => x.value === String(form.fields[`${P}${n}`] ?? '')); return o?.text ?? form.fields[`${P}${n}`] ?? '-'; };
+  console.log(`[empresas] after Aceptar: confirmado_por=${after('confirmado_por')} tipo_operacion=${after('tipo_operacion')}`);
   return {
     ...readAfiliado(form),
     placa: filled,
