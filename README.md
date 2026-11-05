@@ -12,7 +12,7 @@ Todos requieren el header `x-api-key`. Los errores responden `{ ok:false, code, 
 | GET | `/api/health` | Valida configuración, Supabase, reto AWS WAF y login en Silogtran |
 | GET | `/api/solicitudes/:numero` | Lee la solicitud (contenedor sí/no, ítems con origen/destino y vehículos pendientes). Solo lectura |
 | POST | `/api/solicitudes/:numero/preparar` | Llena todo el despacho **sin grabar**; devuelve resumen y un `token` (vence a los 15 min) |
-| POST | `/api/solicitudes/:numero/confirmar` | Con `{ token, anticipo: "total"\|"cero" }` rehace el llenado, verifica el anticipo, **graba** y consulta el estado del RNDC |
+| POST | `/api/solicitudes/:numero/confirmar` | Con `{ token, anticipo: "total"\|"cero"\|<entero>, beneficiario? }` (valor parcial y beneficiario solo en vehículos externos) rehace el llenado, verifica el anticipo, **graba** y consulta el estado del RNDC |
 
 `preparar` recibe `{ placa, citaCargue{fecha,hora}, citaDescargue{fecha,hora}, tipoManifiesto?, ordenCompra?, observacionOrdenCargue?, observacionRemesa?, contenedor?, bl?, item? }`. Las citas son obligatorias; `contenedor` y `bl` lo son si la solicitud lo requiere. `tipoManifiesto` por defecto: 6 (municipal/urbano) si origen = destino, si no 1 (general).
 
@@ -46,7 +46,7 @@ Pantallas: `/invitacion/<token>`, `/vincular`, `/manual` y `/privacidad` (públi
 
 Endpoints del panel (cookie de administrador o `x-api-key` = `ADMIN_KEY`): `POST /api/admin/login`, `GET /api/admin/usuarios`, `GET /api/admin/reporte`, `POST /api/admin/rndc-actualizar`, `POST /api/admin/invitaciones`.
 
-El asistente de IA (OpenAI) atiende por WhatsApp: texto y notas de voz; confirma solo con botones. Ver `CLAUDE.md`.
+El asistente de IA (OpenAI) atiende por WhatsApp: texto y notas de voz; confirma solo con botones. En vehículos externos pregunta con texto fijo «Anticipo total = $X» y se responde con `A`/`B` + valor (`A cero`, `B 500 mil`, `B total`). `preparar` acepta `fuente` (`activos` por defecto, o `empresas`). Ver `CLAUDE.md`.
 
 ## Variables de entorno
 Ver [`.env.example`](./.env.example) (sin valores). En Vercel, marcarlas para **Production** (y Preview si se prueba ahí) y volver a desplegar tras cambiarlas.
@@ -70,4 +70,4 @@ El reto AWS WAF se resuelve con `@sparticuz/chromium` + `puppeteer-core`; el res
 - El repo es público: **nunca** commitear secretos, cookies ni HTML capturado con datos reales.
 
 ## Estado y próximos pasos
-Probado contra Silogtran real: health, consulta de solicitud, `preparar` y `confirmar` (anticipo `"cero"`). Pendiente: probar anticipo `"total"` y medir tiempos frente al límite de 60 s. Siguiente bloque: **multiusuario + WhatsApp + IA** (M1–M6 en `CLAUDE.md`). Fase 2: mapear el motivo de rechazo del RNDC.
+Probado contra Silogtran real: health, consulta de solicitud, `preparar` y `confirmar` (anticipo `"cero"`, total y parcial en externos) y despachos por Vehículos Activos y Empresas. Abierto: al despachar por Empresas el manifiesto queda con «Confirmado Por» NORMAL en vez de EMPRESA (ver `CLAUDE.md`). Siguiente bloque: **multiusuario + WhatsApp + IA** (M1–M6 en `CLAUDE.md`). Fase 2: mapear el motivo de rechazo del RNDC.
