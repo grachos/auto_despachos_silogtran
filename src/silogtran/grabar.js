@@ -14,7 +14,12 @@ function fingerprint($, html) {
   const body = cheerio.load(String(html));
   body('script, style').remove();
   const notices = [...new Set(body('body').text().split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter((l) => l.length > 6 && l.length < 220 && /error|ya existe|debe |seleccion[ea]|no se pudo|no es v[aá]lido|obligatori|requerid|incorrect|inv[aá]lid/i.test(l)))].slice(0, 6);
-  return `len=${String(html).length} notices=${JSON.stringify(notices)} title="${($('title').first().text() || '').trim().slice(0, 60)}" generar=${$('[name="ctl0$MainModule$Generar"]').length} form=${$('form').length} hash=${$('#ctl0_MainModule_hash').length} msgs=${JSON.stringify(msgs)}`;
+  // Validators that PRADO re-rendered as VISIBLE (server-side validation failed): map validator id -> ControlToValidate from
+  // the page scripts, then keep those whose span is not hidden. Field ids only, no values.
+  const control = {};
+  for (const m of String(html).matchAll(/'ID':'([^']+)'[^{}]*?'ControlToValidate':'([^']+)'/g)) control[m[1]] = m[2];
+  const invalid = Object.keys(control).filter((id) => { const st = String($(`#${id}`).attr('style') ?? ''); return $(`#${id}`).length && !/hidden|display:\s*none/i.test(st); }).map((id) => control[id].replace(/^ctl0_MainModule_/, '')).slice(0, 12);
+  return `len=${String(html).length} invalid=${JSON.stringify(invalid)} notices=${JSON.stringify(notices.filter((n) => !/^seleccione uno$/i.test(n)))} title="${($('title').first().text() || '').trim().slice(0, 60)}" generar=${$('[name="ctl0$MainModule$Generar"]').length} form=${$('form').length} hash=${$('#ctl0_MainModule_hash').length} msgs=${JSON.stringify(msgs)}`;
 }
 
 export function parseSaveResult(html) {
