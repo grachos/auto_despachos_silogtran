@@ -10,7 +10,11 @@ const SAVE_TIMEOUT_SEC = 50; // saving takes 10-18 s in Silogtran
 // error-looking message boxes (catalog texts only). Helps to tell a session/page problem from a rejected save.
 function fingerprint($, html) {
   const msgs = $('[id*="ensaje"], [class*="error"], [class*="Error"], .mensaje').toArray().map((el) => $(el).text().replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 4).map((t) => t.slice(0, 160));
-  return `len=${String(html).length} title="${($('title').first().text() || '').trim().slice(0, 60)}" generar=${$('[name="ctl0$MainModule$Generar"]').length} form=${$('form').length} hash=${$('#ctl0_MainModule_hash').length} msgs=${JSON.stringify(msgs)}`;
+  // Any visible line that looks like a validation/error notice (PRADO may render it outside the usual message box).
+  const body = cheerio.load(String(html));
+  body('script, style').remove();
+  const notices = [...new Set(body('body').text().split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter((l) => l.length > 6 && l.length < 220 && /error|ya existe|debe |seleccion[ea]|no se pudo|no es v[aá]lido|obligatori|requerid|incorrect|inv[aá]lid/i.test(l)))].slice(0, 6);
+  return `len=${String(html).length} notices=${JSON.stringify(notices)} title="${($('title').first().text() || '').trim().slice(0, 60)}" generar=${$('[name="ctl0$MainModule$Generar"]').length} form=${$('form').length} hash=${$('#ctl0_MainModule_hash').length} msgs=${JSON.stringify(msgs)}`;
 }
 
 export function parseSaveResult(html) {
