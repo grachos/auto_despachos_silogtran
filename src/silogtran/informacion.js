@@ -230,13 +230,23 @@ function setManifestType(form, input, defaultCode) {
 // but stays on "SELECCIONE UNO" when loaded from the Empresas tab, and saving then fails with a generic server error.
 // Verified at the END of the fill (the route may also set it). EXTERNO -> TERCEROS (what Silogtran itself picks for them);
 // anything else is NOT guessed: fail early with the available options.
-export async function ensureTipoOperacion(form, tipoAfiliado) {
+export async function ensureTipoOperacion(form, tipoAfiliado, deSolicitud = null) {
   const name = `${P}tipo_operacion`;
   if (!(name in form.fields)) return null;
   const options = selectOptions(form, name);
   const isEmpty = (v) => { const o = options.find((x) => x.value === String(v ?? '').trim()); return !o || /seleccione/i.test(o.text); };
   const current = options.find((o) => o.value === String(form.fields[name] ?? '').trim());
   if (!isEmpty(form.fields[name])) return { codigo: current.value, nombre: current.text };
+  // Preferred source (owner's decision 2026-11-05): the operation type chosen in the transport request itself.
+  if (deSolicitud?.texto) {
+    const wanted = norm(deSolicitud.texto);
+    const hit = options.find((o) => norm(o.text) === wanted) ?? options.find((o) => norm(o.text).includes(wanted) || wanted.includes(norm(o.text)));
+    if (hit) {
+      form.fields[name] = hit.value;
+      for (const t of form.triggers('ctl0_MainModule_tipo_operacion', 'change', [])) await form.callback(t);
+      return { codigo: hit.value, nombre: hit.text, origen: 'solicitud' };
+    }
+  }
   if (tipoAfiliado !== 'EXTERNO') {
     throw new ApiError('OPERATION_TYPE_MISSING', 'Silogtran no seleccionó el tipo de operación para este vehículo y no puedo elegirlo por ti.', {
       status: 409, extra: { options: options.map((o) => ({ codigo: o.value, nombre: o.text })) },
@@ -248,12 +258,12 @@ export async function ensureTipoOperacion(form, tipoAfiliado) {
   return { codigo: opt.value, nombre: opt.text };
 }
 
-export async function fillInformacion(form, { placa, fuente, origen, destino, tipoManifiesto, now }) {
+export async function fillInformacion(form, { placa, fuente, origen, destino, tipoManifiesto, now, tipoOperacionSolicitud }) {
   const vehiculo = await selectVehicle(form, placa, fuente); // must come before the route (anticipo depends on it)
   const ruta = await selectRoute(form, origen, destino);
   const fechas = await setDatesAndVolume(form, now);
   const tipo = setManifestType(form, tipoManifiesto, defaultManifestType(origen, destino));
-  const tipoOperacion = await ensureTipoOperacion(form, vehiculo.tipoAfiliado);
+  const tipoOperacion = await ensureTipoOperacion(form, vehiculo.tipoAfiliado, tipoOperacionSolicitud);
   const confirmadoPor = setConfirmadoPor(form, fuente);
   return { vehiculo, ruta, fechas, tipoManifiesto: tipo, tipoOperacion, confirmadoPor };
 }

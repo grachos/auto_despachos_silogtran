@@ -26,6 +26,16 @@ export function parseSolicitud(html, numero) {
   const sel = $(`select[name="${P}soltra_contenedor"] option[selected]`).first();
   const contenedor = norm(sel.attr('value')) === 'si';
 
+  // "Tipo de operación" chosen in the request itself (control name unknown: any select whose name/id mentions "operacion").
+  let tipoOperacion = null;
+  const opSelects = $('select').toArray().filter((s) => /operacion/i.test(`${s.attribs.name ?? ''} ${s.attribs.id ?? ''}`));
+  for (const s of opSelects) {
+    const o = $(s).find('option[selected]').first();
+    const texto = o.text().trim();
+    if (texto && !/^seleccione/i.test(texto)) { tipoOperacion = { campo: (s.attribs.name ?? '').replace(P, ''), valor: (o.attr('value') ?? '').trim(), texto }; break; }
+  }
+  console.log(`[solicitud] tipo operacion: ${tipoOperacion ? `${tipoOperacion.campo}=${tipoOperacion.texto}` : `none (selects con "operacion": ${opSelects.map((s) => (s.attribs.name ?? '').replace(P, '')).join(',') || 'ninguno'})`}`);
+
   const rows = $('#ctl0_MainModule_ItemsSolicitudtransporte tr').toArray();
   if (!rows.length) {
     throw new ApiError('SOLICITUD_PARSE_FAILED', 'No se pudo leer la tabla de ítems de la solicitud.', { status: 502 });
@@ -62,7 +72,7 @@ export function parseSolicitud(html, numero) {
   const fc = $('input[name$="soltra_fechacreacion"]').first().attr('value') || '';
   const fechaCreacion = /^\d{4}-\d{2}-\d{2}/.exec(fc.trim())?.[0] ?? null;
 
-  return { numero, requiereContenedor: contenedor, fechaCreacion, items };
+  return { numero, requiereContenedor: contenedor, fechaCreacion, tipoOperacion, items };
 }
 
 export async function buscarSolicitud(client, numero) {

@@ -25,6 +25,7 @@ export async function runPreparation(client, numero, input, { keepOpen = false }
         origen: chosen.origen,
         destino: chosen.destino,
         tipoManifiesto: input.tipoManifiesto,
+        tipoOperacionSolicitud: solicitud.tipoOperacion,
       });
       await addObservaciones(form, { numero, item: chosen.item, input });
       const contenedor = solicitud.requiereContenedor ? await addContenedor(form, { input }) : null;
