@@ -117,6 +117,7 @@ async function selectFromEmpresas(form, plate) {
   // PRADO postback that is known to save (the earlier attempt changed the postback target too, which broke "Grabar").
   const target = form.buttonByGroup('RequeridosEmpresa', `${P}Aceptar_empresa`);
   await form.postback(target, { [target]: 'Aceptar', [`${P}IDLockHidden_ctl0_MainModule_Aceptar_empresa`]: 'true' });
+  form.aceptarSent = form.lastPostbackSent; // for the read-only diagnostic
   const filled = form.value('ctl0_MainModule_vehiculo_codigo');
   if (!filled) throw new ApiError('VEHICLE_SELECT_FAILED', 'Silogtran no cargó los datos del vehículo desde la pestaña Empresas.', { status: 502, detail: plate });
   // What the SERVER put in these catalog fields right after "Aceptar" (before we touch them): catalog labels only.

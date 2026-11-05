@@ -29,6 +29,18 @@ export function snapshotControls(form) {
   return out;
 }
 
+// What the Empresas "Aceptar" request carried, for the empresa/lock/tab fields only. Technical, non-personal values
+// (button lock, active-tab index, button label, postback target) are shown; for the rest only whether they were filled.
+export function aceptarSent(form) {
+  const sent = form.aceptarSent ?? {};
+  const re = /empresa|enturnamiento|IDLockHidden|^PRADO_POSTBACK_TARGET$/i;
+  const technical = /IDLockHidden|enturnamiento_\d+$|^PRADO_POSTBACK_TARGET$|Aceptar/i;
+  return Object.keys(sent).filter((k) => re.test(k)).sort().map((k) => {
+    const v = String(sent[k] ?? '');
+    return technical.test(k) || /^(Aceptar|true|false|\d)$/i.test(v) ? `${k.replace(/^ctl0\$MainModule\$/, '')}=${v.slice(0, 40)}` : `${k.replace(/^ctl0\$MainModule\$/, '')} ${v.trim() ? '(lleno)' : '(vacío)'}`;
+  });
+}
+
 export function diffControls(a, b) {
   const only = (x, y) => Object.keys(x).filter((k) => !(k in y)).sort();
   const differ = Object.keys(a).filter((k) => k in b && (a[k].filled !== b[k].filled || a[k].sent !== b[k].sent || a[k].disabled !== b[k].disabled || a[k].opcion !== b[k].opcion)).sort()
@@ -88,7 +100,8 @@ export async function diagnoseVehicle(client, numero, { placa, item, completo = 
           let error = null;
           try { await fillInformacion(form, { placa, fuente, origen: chosen.origen, destino: chosen.destino }); } catch (e) { error = e?.code ?? 'ERROR'; }
           const all = snapshotControls(form);
-          return { ok: !error, error, clave: Object.fromEntries(KEY_IDS.map((k) => [k, all[k] ?? null])), controles: all };
+          const rel = Object.fromEntries(Object.entries(all).filter(([k]) => /empresa|enturnamiento|IDLockHidden/i.test(k)));
+          return { ok: !error, error, clave: Object.fromEntries(KEY_IDS.map((k) => [k, all[k] ?? null])), relacionados: rel, aceptarEnviado: aceptarSent(form), controles: all };
         }
         const v = await selectVehicle(form, placa, fuente);
         return { ok: true, tipoAfiliado: v.tipoAfiliado, beneficiarios: (v.beneficiarios ?? []).length, pestanas: tabPanels(form).map((p) => ({ id: p.id, vistas: p.views.length, campo: p.hiddenName, activa: p.active })), controles: snapshotControls(form) };

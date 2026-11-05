@@ -34,10 +34,9 @@ export class PradoPage {
   }
 
   async postback(target, extra = {}) {
-    const page = await this.client.request(this.action, {
-      method: 'POST',
-      form: { ...this.fields, PRADO_POSTBACK_TARGET: target, ...extra },
-    });
+    const body = { ...this.fields, PRADO_POSTBACK_TARGET: target, ...extra };
+    this.lastPostbackSent = body; // kept for the read-only diagnostic (what the last postback actually carried)
+    const page = await this.client.request(this.action, { method: 'POST', form: body });
     this.load(page);
     return page;
   }
