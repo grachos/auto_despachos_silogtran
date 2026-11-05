@@ -6,6 +6,13 @@ import { norm } from './text.js';
 const P = 'ctl0$MainModule$';
 const SAVE_TIMEOUT_SEC = 50; // saving takes 10-18 s in Silogtran
 
+// Structure of an unreadable "Grabar" answer: size, title, whether the form/Grabar button are still there and any
+// error-looking message boxes (catalog texts only). Helps to tell a session/page problem from a rejected save.
+function fingerprint($, html) {
+  const msgs = $('[id*="ensaje"], [class*="error"], [class*="Error"], .mensaje').toArray().map((el) => $(el).text().replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 4).map((t) => t.slice(0, 160));
+  return `len=${String(html).length} title="${($('title').first().text() || '').trim().slice(0, 60)}" generar=${$('[name="ctl0$MainModule$Generar"]').length} form=${$('form').length} hash=${$('#ctl0_MainModule_hash').length} msgs=${JSON.stringify(msgs)}`;
+}
+
 export function parseSaveResult(html) {
   const $ = cheerio.load(html);
   const box = $('#ctl0_MainModule_mensaje');
@@ -29,7 +36,7 @@ export function parseSaveResult(html) {
     else if (/page=Despacho\.Manifiesto/i.test(href)) documents.manifiesto ??= label;
     else if (/page=Financiero\.Transferencia/i.test(href)) documents.transferencia ??= label;
   });
-  return { saved, warnings: rest ? [rest] : [], documents, rawMessage: lines.join(' | ') };
+  return { saved, warnings: rest ? [rest] : [], documents, rawMessage: lines.join(' | '), fingerprint: fingerprint($, html) };
 }
 
 // Posts Generar. Throws SAVE_RESULT_UNKNOWN if the request itself fails (Silogtran may have saved).

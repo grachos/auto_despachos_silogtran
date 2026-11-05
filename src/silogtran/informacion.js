@@ -52,7 +52,8 @@ export function tabPanels(form) {
     const id = o?.ID ?? /['"]ID['"]\s*:\s*['"]([^'"]+)/.exec(m[1])?.[1];
     const views = o?.Views ?? [...(/['"]Views['"]\s*:\s*\[([^\]]*)\]/.exec(m[1])?.[1] ?? '').matchAll(/['"]([^'"]+)['"]/g)].map((x) => x[1]);
     if (!id || !views.length) continue;
-    const hiddenName = form.ids?.get(`${id}_1`.toLowerCase()) ?? null;
+    // Real name is `ctl0_MainModule_enturnamiento_1` (no `$`, captured from the browser), not the usual `ctl0$MainModule$…`.
+    const hiddenName = [form.ids?.get(`${id}_1`.toLowerCase()), `${id}_1`, `${id.replace(/_/g, '$')}_1`].find((n) => n && n in form.fields) ?? null;
     out.push({ id, views, hiddenName, active: hiddenName ? form.fields[hiddenName] ?? null : null });
   }
   return out;
@@ -99,12 +100,10 @@ async function selectFromEmpresas(form, plate) {
   const pick = exact[0];
   form.select(pick);
   activateTabOf(form, name); // the server may derive "Confirmado Por" from the ACTIVE tab, not from the posted select
-  // Mirror the browser exactly (captured 2026-11-04): "Aceptar" is a plain submit -> empty PRADO_POSTBACK_TARGET, the
-  // button's own name=value, its IDLock set to "true" and the Empresas tab index (enturnamiento_1 = 1). Never resolve the
-  // button by ValidationGroup: other buttons of that tab (e.g. "Crear usuario conductor") share "RequeridosEmpresa".
-  const button = `${P}Aceptar_empresa`;
-  const lock = `${P}IDLockHidden_ctl0_MainModule_Aceptar_empresa`;
-  await form.postback('', { [button]: 'Aceptar', ...(lock in form.fields ? { [lock]: 'true' } : {}) });
+  // The browser's own "Aceptar" submit (PRADO_POSTBACK_TARGET="") was tried on 2026-11-05 and made "Grabar" answer in 0.8 s with
+  // no message (SAVE_RESULT_UNKNOWN); the PRADO postback below produced saved dispatches, so it stays.
+  const target = form.buttonByGroup('RequeridosEmpresa', `${P}Aceptar_empresa`);
+  await form.postback(target, { [target]: 'Aceptar' });
   const filled = form.value('ctl0_MainModule_vehiculo_codigo');
   if (!filled) throw new ApiError('VEHICLE_SELECT_FAILED', 'Silogtran no cargó los datos del vehículo desde la pestaña Empresas.', { status: 502, detail: plate });
   return {

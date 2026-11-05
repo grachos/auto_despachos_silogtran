@@ -123,7 +123,7 @@ async function runConfirmation(numero, { payload, uid, plan, beneficiario }, d) 
     const saved = await client.enqueue(() => d.postGenerar(client, form));
     const saveMs = Date.now() - tSave;
     if (!saved.saved || !saved.documents.remesa || !saved.documents.manifiesto) {
-      const detail = saved.rawMessage || 'sin mensaje';
+      const detail = saved.rawMessage || `sin mensaje | ${saved.fingerprint ?? ''}`;
       if (!saved.saved && saved.rawMessage) {
         // Silogtran answered with an error message and did not save.
         await d.markConfirmation(payload.jti, 'FAILED', { detail, fields: { ...base, prepare_ms: prepareMs, save_ms: saveMs, total_ms: Date.now() - t0, error_code: 'SAVE_REJECTED' } });
