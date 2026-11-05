@@ -6,7 +6,9 @@ import { ApiError } from '../http/errors.js';
 import { buscarSolicitud } from './solicitud.js';
 import { clearPending, pickItem, startDispatch } from './despacho.js';
 import { PradoPage } from './prado.js';
-import { selectVehicle, tabPanels, fillInformacion } from './informacion.js';
+import { selectVehicle, tabPanels, fillInformacion, setConfirmadoPor } from './informacion.js';
+import { runPreparation } from './preparar.js';
+import { parsePreparar } from '../validation.js';
 
 const P = 'ctl0$MainModule$';
 
@@ -49,6 +51,26 @@ export function tabHints(html) {
     .filter((x, i, a) => a.indexOf(x) === i).slice(0, 40).map((x) => x.slice(0, 400));
   const hidden = $('input[type=hidden]').toArray().map((el) => `${el.attribs.id || el.attribs.name}${String(el.attribs.value ?? '').trim() ? ' (lleno)' : ''}`).filter((x) => !/PRADO_/.test(x));
   return { tabs, scripts, hidden };
+}
+
+// Dry run of EVERYTHING `confirmar` does before pressing "Grabar" (vehicle, route, dates, observaciones, anticipo "cero",
+// Confirmado Por) and report the form fields that WOULD be posted: names + filled flag, and the value only for catalog /
+// internal-id fields (never names or documents). Nothing is saved; the pending item is cleared.
+export async function dryRunSave(client, numero, { placa, item, fuente }) {
+  const tomorrow = (d) => new Date(Date.now() + d * 86_400_000).toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+  const input = parsePreparar({ placa, item, fuente, citaCargue: { fecha: tomorrow(1), hora: '08:00' }, citaDescargue: { fecha: tomorrow(2), hora: '16:00' } });
+  try {
+    const { form } = await runPreparation(client, numero, input, { keepOpen: true });
+    await client.enqueue(async () => { setConfirmadoPor(form, fuente); });
+    const SHOW = /IDHidden$|enturnamiento|fieldHd|confirmado|tipo_operacion|tipafi|tipo_manifiesto|tipmanrndc|Anticipo$|beneficiario|Generar$|Aceptar|IDLock/i;
+    const campos = Object.keys(form.fields).filter((k) => !/^PRADO_/.test(k)).sort().map((k) => {
+      const v = String(form.fields[k] ?? '');
+      return SHOW.test(k) ? `${k.replace('ctl0$MainModule$', '')}=${v.slice(0, 24)}` : `${k.replace('ctl0$MainModule$', '')}${v ? '' : ' (vacío)'}`;
+    });
+    return { ok: true, solicitud: numero, fuente, total: campos.length, campos };
+  } finally {
+    await client.enqueue(() => clearPending(client)).catch(() => {});
+  }
 }
 
 export async function diagnoseVehicle(client, numero, { placa, item, completo = false, codigo = false }) {

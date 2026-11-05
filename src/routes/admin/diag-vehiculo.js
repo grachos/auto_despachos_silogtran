@@ -6,7 +6,7 @@ import { requireAdmin } from '../../http/admin.js';
 import { withLock } from '../../store/locks.js';
 import { assertActorActive, openActorSession, resolveActorId, sessionKey } from '../../silogtran/userSession.js';
 import { assertNumero } from '../../dispatch/service.js';
-import { diagnoseVehicle } from '../../silogtran/diagnostico.js';
+import { diagnoseVehicle, dryRunSave } from '../../silogtran/diagnostico.js';
 
 export default async function handler(req, res) {
   res.setHeader('cache-control', 'no-store');
@@ -25,6 +25,7 @@ export default async function handler(req, res) {
     await assertActorActive(userId);
     const out = await withLock(sessionKey(userId), async () => {
       const { client } = await openActorSession(userId);
+      if (req.body?.envio === true) return dryRunSave(client, numero, { placa, item, fuente: req.body?.fuente === 'activos' ? 'activos' : 'empresas' });
       return diagnoseVehicle(client, numero, { placa, item, completo: req.body?.completo === true, codigo: req.body?.codigo === true });
     });
     res.status(200).json(out);
