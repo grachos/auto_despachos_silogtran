@@ -77,7 +77,14 @@ export function setConfirmadoPor(form, fuente = 'activos') {
   // Browser capture of "Grabar" by Empresas (2026-11-05): confirmado_por stays "SELECCIONE UNO" and Silogtran computes the value
   // itself on save (EMPRESA). Forcing EMPRESA from here always ended as NORMAL, so for Empresas the field is left UNTOUCHED
   // (with the Aceptar lock sent). Vehículos Activos keeps the explicit NORMAL that has been saving fine.
-  if (fuente === 'empresas') return form.fields[CONFIRMADO_POR];
+  if (fuente === 'empresas') {
+    // Last experiment (2026-11-05): the browser's "Grabar" carries every button-lock hidden (IDLockHidden_*) as "true" (its JS sets them
+    // on each click); we sent them empty. Mirror it for the fields that exist in the form. Empresas only.
+    let locks = 0;
+    for (const k of Object.keys(form.fields)) if (/IDLockHidden_/.test(k)) { form.fields[k] = 'true'; locks++; }
+    console.log(`[empresas] locks set to true: ${locks}`);
+    return form.fields[CONFIRMADO_POR];
+  }
   const opt = resolveOption(selectOptions(form, CONFIRMADO_POR), 'NORMAL', 'Confirmado Por');
   form.fields[CONFIRMADO_POR] = opt.value;
   return opt.value;
