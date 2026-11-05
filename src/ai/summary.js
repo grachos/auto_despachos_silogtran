@@ -45,7 +45,7 @@ export function buildButtons(pendingId, r) {
 // ctot/ccero = confirm, canc = cancel, rep = prepare again with the same data (expired summary).
 export const BUTTON_ID = /^(ctot|ccero|cok|canc|rep):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
 
-export const fuenteLabel = (f) => (f === 'empresas' ? 'pestaña Empresas (Confirmado Por: EMPRESA)' : 'Vehículos Activos (Confirmado Por: NORMAL)');
+export const fuenteLabel = (f) => (f === 'empresas' ? 'pestaña Empresas' : 'Vehículos Activos');
 
 export function resultText(r, resumen) {
   const d = r.documents ?? {};

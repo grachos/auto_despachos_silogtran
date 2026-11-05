@@ -74,7 +74,11 @@ export function setConfirmadoPor(form, fuente = 'activos') {
   if (!(CONFIRMADO_POR in form.fields)) {
     throw new ApiError('CONFIRMED_BY_FIELD_MISSING', 'No encontré el campo "Confirmado Por" de Silogtran; no se grabó nada.', { status: 502 });
   }
-  const opt = resolveOption(selectOptions(form, CONFIRMADO_POR), fuente === 'empresas' ? 'EMPRESA' : 'NORMAL', 'Confirmado Por');
+  // Browser capture of "Grabar" by Empresas (2026-11-05): confirmado_por stays "SELECCIONE UNO" and Silogtran computes the value
+  // itself on save (EMPRESA). Forcing EMPRESA from here always ended as NORMAL, so for Empresas the field is left UNTOUCHED
+  // (with the Aceptar lock sent). Vehículos Activos keeps the explicit NORMAL that has been saving fine.
+  if (fuente === 'empresas') return form.fields[CONFIRMADO_POR];
+  const opt = resolveOption(selectOptions(form, CONFIRMADO_POR), 'NORMAL', 'Confirmado Por');
   form.fields[CONFIRMADO_POR] = opt.value;
   return opt.value;
 }
