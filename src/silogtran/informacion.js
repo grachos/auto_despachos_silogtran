@@ -83,7 +83,10 @@ export function setConfirmadoPor(form, fuente = 'activos') {
     let locks = 0;
     for (const k of Object.keys(form.fields)) if (/IDLockHidden_/.test(k)) { form.fields[k] = 'true'; locks++; }
     console.log(`[empresas] locks set to true: ${locks}`);
-    return form.fields[CONFIRMADO_POR];
+    // The browser's successful capture posts confirmado_por=EMPRESA at Grabar (its JS sets it after "Aceptar"); this time together with tab index 1.
+    const opt = resolveOption(selectOptions(form, CONFIRMADO_POR), 'EMPRESA', 'Confirmado Por');
+    form.fields[CONFIRMADO_POR] = opt.value;
+    return opt.value;
   }
   const opt = resolveOption(selectOptions(form, CONFIRMADO_POR), 'NORMAL', 'Confirmado Por');
   form.fields[CONFIRMADO_POR] = opt.value;
@@ -115,6 +118,11 @@ async function selectFromEmpresas(form, plate) {
   // Owner's finding (2026-11-05): Silogtran derives "Confirmado Por" (saved as tipo_manifiesto_confirmar) from the button LOCK
   // hidden `IDLockHidden_ctl0_MainModule_Aceptar_empresa`, which the browser's JS sets to "true" on click. Send it, keeping the
   // PRADO postback that is known to save (the earlier attempt changed the postback target too, which broke "Grabar").
+  // Real browser capture (manifest that ended EMPRESA): its "Aceptar" carries the tab panel index as 1 (the click on the tab sets it
+  // client-side); we sent 0. Set it ONLY on this request, exactly like the browser. The panel disappears after "Aceptar", so it is
+  // never written again (writing it at "Grabar" is what made saving fail before).
+  const tab = activateTabOf(form, `${P}vehiculo_placa_empresa`);
+  console.log(`[empresas] tab index for Aceptar: ${tab ? tab.value : 'not found'}`);
   const target = form.buttonByGroup('RequeridosEmpresa', `${P}Aceptar_empresa`);
   await form.postback(target, { [target]: 'Aceptar', [`${P}IDLockHidden_ctl0_MainModule_Aceptar_empresa`]: 'true' });
   form.aceptarSent = form.lastPostbackSent; // for the read-only diagnostic
