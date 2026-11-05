@@ -76,8 +76,6 @@ export function setConfirmadoPor(form, fuente = 'activos') {
   }
   const opt = resolveOption(selectOptions(form, CONFIRMADO_POR), fuente === 'empresas' ? 'EMPRESA' : 'NORMAL', 'Confirmado Por');
   form.fields[CONFIRMADO_POR] = opt.value;
-  // Keep the Empresas tab marked active across later postbacks (they re-render the page).
-  if (fuente === 'empresas' && form.activeTab && form.activeTab.name in form.fields) form.fields[form.activeTab.name] = form.activeTab.value;
   return opt.value;
 }
 
@@ -99,7 +97,8 @@ async function selectFromEmpresas(form, plate) {
   }
   const pick = exact[0];
   form.select(pick);
-  activateTabOf(form, name); // the server may derive "Confirmado Por" from the ACTIVE tab, not from the posted select
+  // NOTE: marking the Empresas tab active (activateTabOf) was removed on 2026-11-05: once it actually found the hidden field
+  // (fix of its name in 5b20b10) every "Grabar" came back in <1 s without saving (3b0f12f, where it was a no-op, saved fine).
   // The browser's own "Aceptar" submit (PRADO_POSTBACK_TARGET="") was tried on 2026-11-05 and made "Grabar" answer in 0.8 s with
   // no message (SAVE_RESULT_UNKNOWN); the PRADO postback below produced saved dispatches, so it stays.
   const target = form.buttonByGroup('RequeridosEmpresa', `${P}Aceptar_empresa`);
