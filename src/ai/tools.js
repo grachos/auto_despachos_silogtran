@@ -24,7 +24,7 @@ export const TOOLS = [
     type: 'function',
     function: {
       name: 'preparar_despacho',
-      description: 'Prepara un despacho en Silogtran SIN grabarlo. Si sale bien, el sistema mostrará el resumen con botones para que la persona confirme. Úsala solo cuando tengas todos los datos obligatorios.',
+      description: 'Prepara un despacho en Silogtran SIN grabarlo. Si sale bien, el sistema mostrará el resumen con botones para que la persona confirme. Úsala en cuanto tengas los datos obligatorios (solicitud, placa y dos citas); beneficiario y anticipo déjalos en null si la persona no los dijo: el sistema pregunta solo si el vehículo resulta externo. Nunca preguntes por ellos antes.',
       strict: true,
       parameters: {
         type: 'object', additionalProperties: false,
@@ -163,7 +163,7 @@ export function chooseExternal(resumen, args, userText) {
 export function nextStep(s) {
   const open = s.items.filter((i) => i.pendientes > 0);
   if (!open.length) return 'La solicitud está AGOTADA: avisa que ya no tiene vehículos por despachar y no sigas.';
-  if (open.length === 1) return `Hay un solo ítem con cupos (ítem ${open[0].item}): úsalo. Si ya tienes placa y las dos citas, llama AHORA a preparar_despacho con item ${open[0].item}. NO preguntes si quiere despachar ni en qué ítem.`;
+  if (open.length === 1) return `Hay un solo ítem con cupos (ítem ${open[0].item}): úsalo. Si ya tienes placa y las dos citas, llama AHORA a preparar_despacho con item ${open[0].item}. NO preguntes si quiere despachar ni en qué ítem, ni por afiliado, beneficiario o anticipo (si el vehículo es externo el sistema lo pregunta después de preparar).`;
   return 'Hay varios ítems con cupos: pregunta SOLO cuál ítem, salvo que la persona ya lo haya indicado.';
 }
 
