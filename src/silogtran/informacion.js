@@ -101,8 +101,11 @@ async function selectFromEmpresas(form, plate) {
   // (fix of its name in 5b20b10) every "Grabar" came back in <1 s without saving (3b0f12f, where it was a no-op, saved fine).
   // The browser's own "Aceptar" submit (PRADO_POSTBACK_TARGET="") was tried on 2026-11-05 and made "Grabar" answer in 0.8 s with
   // no message (SAVE_RESULT_UNKNOWN); the PRADO postback below produced saved dispatches, so it stays.
+  // Owner's finding (2026-11-05): Silogtran derives "Confirmado Por" (saved as tipo_manifiesto_confirmar) from the button LOCK
+  // hidden `IDLockHidden_ctl0_MainModule_Aceptar_empresa`, which the browser's JS sets to "true" on click. Send it, keeping the
+  // PRADO postback that is known to save (the earlier attempt changed the postback target too, which broke "Grabar").
   const target = form.buttonByGroup('RequeridosEmpresa', `${P}Aceptar_empresa`);
-  await form.postback(target, { [target]: 'Aceptar' });
+  await form.postback(target, { [target]: 'Aceptar', [`${P}IDLockHidden_ctl0_MainModule_Aceptar_empresa`]: 'true' });
   const filled = form.value('ctl0_MainModule_vehiculo_codigo');
   if (!filled) throw new ApiError('VEHICLE_SELECT_FAILED', 'Silogtran no cargó los datos del vehículo desde la pestaña Empresas.', { status: 502, detail: plate });
   return {
