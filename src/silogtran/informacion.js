@@ -241,40 +241,63 @@ function setManifestType(form, input, defaultCode) {
 // but stays on "SELECCIONE UNO" when loaded from the Empresas tab, and saving then fails with a generic server error.
 // Verified at the END of the fill (the route may also set it). EXTERNO -> TERCEROS (what Silogtran itself picks for them);
 // anything else is NOT guessed: fail early with the available options.
-export async function ensureTipoOperacion(form, tipoAfiliado, deSolicitud = null) {
+// Closest operation type to what the person wrote («liquido» -> LIQUIDA, «contenedor» -> CONTENERIZADO, «ut» -> UNION TEMPORAL UT).
+// Exact -> contains/contained -> shared word prefix (>= 5 letters). One winner or an explicit ambiguity/not-found error.
+export function matchOperation(options, input) {
+  const wanted = norm(input);
+  const words = (s) => norm(s).split(/[^a-z0-9]+/).filter(Boolean);
+  const exact = options.filter((o) => norm(o.text) === wanted || norm(o.value) === wanted);
+  const sets = [
+    exact,
+    options.filter((o) => norm(o.text).includes(wanted) || (wanted.length >= 4 && wanted.includes(norm(o.text)))),
+    options.filter((o) => words(o.text).some((w) => words(input).some((x) => x.length >= 5 && w.length >= 5 && (w.startsWith(x.slice(0, 5)) && x.startsWith(w.slice(0, 5)))))),
+    options.filter((o) => words(o.text).some((w) => w === wanted)), // «ut», «b_100» as whole words
+  ];
+  const found = sets.find((s) => s.length);
+  if (found?.length === 1) return found[0];
+  throw new ApiError(found?.length ? 'AMBIGUOUS_OPTION' : 'OPTION_NOT_FOUND', `${found?.length ? 'Varias opciones coinciden' : 'Ninguna opción coincide'} con "${input}" para el tipo de operación.`, {
+    status: found?.length ? 409 : 400,
+    extra: { options: (found?.length ? found : options).map((o) => ({ codigo: o.value, nombre: o.text })) },
+  });
+}
+
+// Operation type, in this order: (1) what the person asked for (closest option), (2) the one chosen in the transport request itself
+// (applies to both vehicle sources), (3) what Silogtran already selected, (4) EXTERNO -> TERCEROS, otherwise fail before saving.
+// Without any choice the Empresas tab leaves "SELECCIONE UNO" and saving fails with a generic server error.
+export async function ensureTipoOperacion(form, tipoAfiliado, deSolicitud = null, pedido = null) {
   const name = `${P}tipo_operacion`;
   if (!(name in form.fields)) return null;
   const options = selectOptions(form, name);
   const isEmpty = (v) => { const o = options.find((x) => x.value === String(v ?? '').trim()); return !o || /seleccione/i.test(o.text); };
   const current = options.find((o) => o.value === String(form.fields[name] ?? '').trim());
-  if (!isEmpty(form.fields[name])) return { codigo: current.value, nombre: current.text };
-  // Preferred source (owner's decision 2026-11-05): the operation type chosen in the transport request itself.
+  const apply = async (opt, origen) => {
+    if (!current || current.value !== opt.value) {
+      form.fields[name] = opt.value;
+      for (const t of form.triggers('ctl0_MainModule_tipo_operacion', 'change', [])) await form.callback(t);
+    }
+    return { codigo: opt.value, nombre: opt.text, origen };
+  };
+  if (pedido) return apply(matchOperation(options, pedido), 'usuario');
   if (deSolicitud?.texto) {
     const wanted = norm(deSolicitud.texto);
     const hit = options.find((o) => norm(o.text) === wanted) ?? options.find((o) => norm(o.text).includes(wanted) || wanted.includes(norm(o.text)));
-    if (hit) {
-      form.fields[name] = hit.value;
-      for (const t of form.triggers('ctl0_MainModule_tipo_operacion', 'change', [])) await form.callback(t);
-      return { codigo: hit.value, nombre: hit.text, origen: 'solicitud' };
-    }
+    if (hit) return apply(hit, 'solicitud');
   }
+  if (!isEmpty(form.fields[name])) return { codigo: current.value, nombre: current.text, origen: 'silogtran' };
   if (tipoAfiliado !== 'EXTERNO') {
     throw new ApiError('OPERATION_TYPE_MISSING', 'Silogtran no seleccionó el tipo de operación para este vehículo y no puedo elegirlo por ti.', {
       status: 409, extra: { options: options.map((o) => ({ codigo: o.value, nombre: o.text })) },
     });
   }
-  const opt = resolveOption(options, 'TERCEROS', 'el tipo de operación');
-  form.fields[name] = opt.value;
-  for (const t of form.triggers('ctl0_MainModule_tipo_operacion', 'change', [])) await form.callback(t);
-  return { codigo: opt.value, nombre: opt.text };
+  return apply(resolveOption(options, 'TERCEROS', 'el tipo de operación'), 'terceros');
 }
 
-export async function fillInformacion(form, { placa, fuente, origen, destino, tipoManifiesto, now, tipoOperacionSolicitud }) {
+export async function fillInformacion(form, { placa, fuente, origen, destino, tipoManifiesto, now, tipoOperacionSolicitud, tipoOperacionPedido }) {
   const vehiculo = await selectVehicle(form, placa, fuente); // must come before the route (anticipo depends on it)
   const ruta = await selectRoute(form, origen, destino);
   const fechas = await setDatesAndVolume(form, now);
   const tipo = setManifestType(form, tipoManifiesto, defaultManifestType(origen, destino));
-  const tipoOperacion = await ensureTipoOperacion(form, vehiculo.tipoAfiliado, tipoOperacionSolicitud);
+  const tipoOperacion = await ensureTipoOperacion(form, vehiculo.tipoAfiliado, tipoOperacionSolicitud, tipoOperacionPedido);
   const confirmadoPor = setConfirmadoPor(form, fuente);
   return { vehiculo, ruta, fechas, tipoManifiesto: tipo, tipoOperacion, confirmadoPor };
 }

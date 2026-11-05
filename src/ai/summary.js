@@ -18,6 +18,7 @@ export function buildSummaryText(r) {
     `Conductor: ${clean(r.conductor)}`,
     `Ruta: ${clean(r.ruta)}`,
     `Manifiesto: ${clean(r.tipoManifiesto?.nombre)}`,
+    ...(r.tipoOperacion?.nombre ? [`Tipo de operación: ${clean(r.tipoOperacion.nombre)}`] : []),
     `Cita de cargue: ${when(r.fechas.citaCargue.fecha, r.fechas.citaCargue.hora)}`,
     `Cita de descargue: ${when(r.fechas.citaDescargue.fecha, r.fechas.citaDescargue.hora)}`,
   ];

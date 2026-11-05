@@ -49,6 +49,7 @@ export function parsePreparar(body) {
     citaCargue: cita(b.citaCargue, 'citaCargue'),
     citaDescargue: cita(b.citaDescargue, 'citaDescargue'),
     tipoManifiesto: b.tipoManifiesto == null ? null : text(b.tipoManifiesto, 'tipoManifiesto', null),
+    tipoOperacion: b.tipoOperacion == null || String(b.tipoOperacion).trim() === '' ? null : text(b.tipoOperacion, 'tipoOperacion', null),
     fuente: parseFuente(b.fuente),
     ordenCompra: text(b.ordenCompra, 'ordenCompra', 'NA'),
     observacionOrdenCargue: text(b.observacionOrdenCargue, 'observacionOrdenCargue', 'NA'),
