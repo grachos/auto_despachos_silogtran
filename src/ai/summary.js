@@ -24,7 +24,9 @@ export function buildSummaryText(r) {
   ];
   if (r.contenedor) lines.push(`Contenedor: ${clean(r.contenedor.numero)} · BL: ${clean(r.contenedor.bl)}`);
   if (r.eleccion) {
-    lines.push(`Beneficiario del anticipo: ${clean(r.eleccion.beneficiario.texto)}`, `Anticipo a entregar: ${money(r.eleccion.anticipo)}`);
+    // With a zero anticipo nothing is paid: the beneficiary line would only confuse.
+    if (r.eleccion.anticipo > 0) lines.push(`Beneficiario del anticipo: ${clean(r.eleccion.beneficiario.texto)}`);
+    lines.push(`Anticipo a entregar: ${money(r.eleccion.anticipo)}`);
     if (r.eleccion.anticipo > 0) lines.push('Banco: BANCOLOMBIA TERCEROS');
   } else lines.push(`Anticipo sugerido: ${money(r.anticipoSugerido)}`);
   lines.push('', 'Revisa que todo esté bien y elige una opción. No se graba nada hasta que pulses un botón de confirmar.');

@@ -122,9 +122,14 @@ export function parseAnticipoReply(userText, max) {
   else if (/\b(pose\w*|propie\w*|duen\w*)/.test(t)) out.rol = 'poseedor';
   else if (/\b(cond\w*|chofer|chofe\w*)/.test(t)) out.rol = 'conductor';
   const nums = spanishNumbers(String(userText).replace(/\b0\d{5,}\b/g, ' ')); // request numbers (01…) are not amounts
-  if (/\b(total|completo|todo)\b/.test(t)) out.anticipo = max;
-  else if (/\b(cero|sin anticipo|ninguno|nada)\b/.test(t)) out.anticipo = 0;
-  else if (nums.length === 1 && t.split(/\s+/).length <= 6) out.anticipo = nums[0] < 1000 && nums[0] > 0 ? nums[0] * 1000 : nums[0];
+  // In a short reply the bare words count; inside a long message (the whole dispatch request) they must be tied to «anticipo»
+  // so «todo el día» or «ninguna observación» are not read as an amount.
+  const short = t.split(/\s+/).length <= 6;
+  const totalRe = short ? /\b(total|completo|todo)\b/ : /anticipo\s*(?:es\s*|de\s*|en\s*)?(?:el\s*)?(?:total|completo|todo)\b|\b(?:total|completo)\s+del\s+anticipo/;
+  const zeroRe = short ? /\b(cero|sin anticipo|ninguno|nada)\b/ : /anticipo\s*(?:de\s*|en\s*)?(?:cero|0)\b|\bsin\s+anticipo\b|\banticipo\s+ninguno\b/;
+  if (totalRe.test(t)) out.anticipo = max;
+  else if (zeroRe.test(t)) out.anticipo = 0;
+  else if (nums.length === 1 && short) out.anticipo = nums[0] < 1000 && nums[0] > 0 ? nums[0] * 1000 : nums[0];
   return out;
 }
 
@@ -143,13 +148,21 @@ export function chooseExternal(resumen, args, userText) {
   const said0 = userText !== undefined ? parseAnticipoReply(userText, max) : {};
   if (said0.rol || said0.anticipo !== undefined) args = { ...args, beneficiario: said0.rol ?? args.beneficiario, anticipo: said0.anticipo ?? args.anticipo };
   const role = String(args.beneficiario ?? '').trim().toLowerCase();
-  const ben = opts.find((o) => o.rol === role);
+  let ben = opts.find((o) => o.rol === role);
+  // Zero anticipo: nothing is paid, so who receives it is irrelevant. Do NOT ask: keep the driver (Silogtran's own default) when the
+  // person said «cero» in this message (or no message text is available, e.g. API use).
+  let defaulted = false;
+  if (!ben && args.anticipo === 0) {
+    const stated = userText === undefined || said0.anticipo === 0 || statedInMessage(userText, { rol: 'conductor', anticipo: 0, max }).valueOk;
+    const driver = opts.find((o) => o.rol === 'conductor') ?? opts.find((o) => o.seleccionado);
+    if (stated && driver) { ben = driver; defaulted = true; }
+  }
   const view = { afiliado: 'EXTERNO', beneficiariosDisponibles: opts.map((o) => o.rol), anticipoMaximo: max };
   let falta = [...(ben ? [] : ['beneficiario']), ...(args.anticipo == null ? ['anticipo'] : [])];
   if (!falta.length && userText !== undefined && Number.isSafeInteger(args.anticipo) && args.anticipo >= 0 && args.anticipo <= max) {
     const said = statedInMessage(userText, { rol: ben.rol, anticipo: args.anticipo, max });
     // Parts parsed from the current message by code (said0) are already verified; only the model's own values need checking.
-    if (!said.roleOk && !said0.rol) falta.push('beneficiario');
+    if (!said.roleOk && !said0.rol && !defaulted) falta.push('beneficiario');
     if (!said.valueOk && said0.anticipo === undefined) falta.push('anticipo');
   }
   if (falta.length) return { reply: askExternalText(max), ask: { ok: true, preparado: false, ...view, falta, instruccion: 'Vehículo EXTERNO: pregunta a la persona lo que falta (a quién va el anticipo y cuánto, de 0 a anticipoMaximo) y vuelve a llamar a preparar_despacho con los mismos datos. No supongas.' } };
