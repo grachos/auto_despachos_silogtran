@@ -32,7 +32,7 @@ export async function listUsers() {
 // Confirmations (one per attempt), newest first.
 export async function listDispatches({ from, to, userId, estado, limit = 1000 } = {}) {
   let q = supabase().from('silog_confirmaciones').select(
-    'token_id, numero, status, created_at, user_id, placa, solicitud_item, anticipo_modo, anticipo_valor, orden_cargue, remesa, manifiesto, transferencia, radicado, rndc_migrated, rndc_fecha_hora, rndc_checked_at, prepare_ms, save_ms, total_ms, error_code, app_users(nombre)',
+    'token_id, numero, status, created_at, user_id, fuente, placa, solicitud_item, anticipo_modo, anticipo_valor, orden_cargue, remesa, manifiesto, transferencia, radicado, rndc_migrated, rndc_fecha_hora, rndc_checked_at, prepare_ms, save_ms, total_ms, error_code, app_users(nombre)',
   ).neq('status', 'PROCESSING').order('created_at', { ascending: false }).limit(limit);
   if (from) q = q.gte('created_at', from);
   if (to) q = q.lt('created_at', to);
@@ -41,7 +41,7 @@ export async function listDispatches({ from, to, userId, estado, limit = 1000 } 
   if (estado) q = q.eq('status', estado);
   return (await run(q)).map((r) => ({
     id: r.token_id, fecha: r.created_at, usuario: r.app_users?.nombre ?? null, userId: r.user_id, solicitud: r.numero, item: r.solicitud_item,
-    placa: r.placa, estado: r.status, anticipoModo: r.anticipo_modo, anticipoValor: r.anticipo_valor,
+    fuente: r.fuente ?? 'activos', placa: r.placa, estado: r.status, anticipoModo: r.anticipo_modo, anticipoValor: r.anticipo_valor,
     ordenCargue: r.orden_cargue, remesa: r.remesa, manifiesto: r.manifiesto, transferencia: r.transferencia,
     radicado: r.radicado, migrado: r.rndc_migrated, rndcFechaHora: r.rndc_fecha_hora, rndcRevisado: r.rndc_checked_at,
     prepareMs: r.prepare_ms, saveMs: r.save_ms, totalMs: r.total_ms, errorCode: r.error_code,
@@ -53,7 +53,7 @@ export async function pendingRndc(limit = 10) {
   const since = new Date(Date.now() - 14 * 86_400_000).toISOString();
   return run(
     supabase().from('silog_confirmaciones').select('token_id, manifiesto').eq('status', 'DONE').not('manifiesto', 'is', null)
-      .is('radicado', null).gt('created_at', since).order('created_at', { ascending: false }).limit(limit),
+      .is('radicado', null).or('fuente.is.null,fuente.neq.empresas').gt('created_at', since).order('created_at', { ascending: false }).limit(limit),
   );
 }
 

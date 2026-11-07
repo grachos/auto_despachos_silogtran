@@ -52,7 +52,8 @@ export function applyRules(summary, { beneficiario, mode }) {
   return { bank: 'propios', beneficiario: null };
 }
 
-function buildMessage(documents, rndc) {
+function buildMessage(documents, rndc, { noMinistry = false } = {}) {
+  if (noMinistry) return `Se despachó a satisfacción. Remesa ${documents.remesa}, Manifiesto ${documents.manifiesto}.`; // Empresas: not reported to the Ministry
   const ministry = rndc?.migrated ? `Radicado Ministerio ${rndc.radicado}` : rndc?.mensaje ? `Respuesta del Ministerio: ${rndc.mensaje}` : rndc ? 'Sin migrar al Ministerio' : 'Estado del Ministerio no verificado';
   return `Se despachó a satisfacción. Remesa ${documents.remesa}, Manifiesto ${documents.manifiesto}. ${ministry}.`;
 }
@@ -86,7 +87,8 @@ async function runConfirmation(numero, { payload, uid, plan, beneficiario }, d) 
   }
 
   const t0 = Date.now();
-  const base = { user_id: uid, placa: payload.input.placa ?? null, solicitud_item: payload.item ?? null, anticipo_modo: plan.mode };
+  const fuente = payload.input.fuente === 'empresas' ? 'empresas' : 'activos';
+  const base = { user_id: uid, fuente, placa: payload.input.placa ?? null, solicitud_item: payload.item ?? null, anticipo_modo: plan.mode };
   let prepareMs = null;
   let client;
   let saving = false;
@@ -140,6 +142,12 @@ async function runConfirmation(numero, { payload, uid, plan, beneficiario }, d) 
       orden_cargue: saved.documents.ordenCargue, remesa: saved.documents.remesa, manifiesto: saved.documents.manifiesto, transferencia: saved.documents.transferencia,
       prepare_ms: prepareMs, save_ms: saveMs, total_ms: Date.now() - t0,
     };
+    // Trips loaded through the Empresas tab are NOT reported to the Ministry (RNDC): nothing to read or show.
+    if (fuente === 'empresas') {
+      const resultEmpresas = { ...out, status: 'DISPATCHED', rndc: null, ministerio: 'NO_APLICA', message: buildMessage(saved.documents, null, { noMinistry: true }) };
+      await d.markConfirmation(payload.jti, 'DONE', { result: resultEmpresas, fields: metrics });
+      return resultEmpresas;
+    }
     await d.markConfirmation(payload.jti, 'DONE', { result: { ...out, message: buildMessage(saved.documents, null) }, fields: metrics });
 
     let rndc = null;

@@ -153,7 +153,7 @@ async function loadDispatches() {
     { h: 'Remesa', v: (r) => dash(r.remesa) },
     { h: 'Manifiesto', v: (r) => dash(r.manifiesto) },
     { h: 'Transferencia', v: (r) => dash(r.transferencia) },
-    { h: 'Radicado', v: (r) => (r.radicado ? r.radicado : r.manifiesto ? badge('Sin migrar', 'warn') : '—') },
+    { h: 'Radicado', v: (r) => (r.radicado ? r.radicado : r.fuente === 'empresas' && r.manifiesto ? badge('No aplica (Empresas)', 'ok') : r.manifiesto ? badge('Sin migrar', 'warn') : '—') },
     { h: 'Fecha/hora Ministerio', v: (r) => dash(r.rndcFechaHora) },
     { h: 'Preparar', v: (r) => secs(r.prepareMs) },
     { h: 'Grabar', v: (r) => secs(r.saveMs) },

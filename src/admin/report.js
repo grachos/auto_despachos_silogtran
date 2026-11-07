@@ -35,7 +35,8 @@ export function buildKpis(rows) {
     prepararMsPromedio: avg(pr),
     grabarMsPromedio: avg(sv),
     migrados: done.filter((r) => r.migrado === true).length,
-    sinMigrar: done.filter((r) => r.migrado !== true && r.manifiesto).length,
+    sinMigrar: done.filter((r) => r.migrado !== true && r.manifiesto && r.fuente !== 'empresas').length,
+    sinMinisterio: done.filter((r) => r.fuente === 'empresas' && r.manifiesto).length, // Empresas trips: not reported to the Ministry
   };
 }
 

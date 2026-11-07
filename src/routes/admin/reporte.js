@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     const filas = await listDispatches({ ...range, userId: q.usuario, estado: q.estado });
     if (q.format === 'csv') {
       const headers = ['Fecha (UTC)', 'Usuario', 'Solicitud', 'Item', 'Placa', 'Estado', 'Anticipo', 'Valor anticipo', 'Orden de cargue', 'Remesa', 'Manifiesto', 'Transferencia', 'Radicado', 'Fecha/hora Ministerio', 'Preparar (s)', 'Grabar (s)', 'Total (s)', 'Error'];
-      const rows = filas.map((r) => [r.fecha, r.usuario ?? 'API (usuario cero)', r.solicitud, r.item, r.placa, r.estado, r.anticipoModo, r.anticipoValor, r.ordenCargue, r.remesa, r.manifiesto, r.transferencia, r.radicado, r.rndcFechaHora, fmt(r.prepareMs), fmt(r.saveMs), fmt(r.totalMs), r.errorCode]);
+      const rows = filas.map((r) => [r.fecha, r.usuario ?? 'API (usuario cero)', r.solicitud, r.item, r.placa, r.estado, r.anticipoModo, r.anticipoValor, r.ordenCargue, r.remesa, r.manifiesto, r.transferencia, r.radicado ?? (r.fuente === 'empresas' ? 'No aplica (Empresas)' : ''), r.rndcFechaHora, fmt(r.prepareMs), fmt(r.saveMs), fmt(r.totalMs), r.errorCode]);
       res.setHeader('content-type', 'text/csv; charset=utf-8');
       res.setHeader('content-disposition', 'attachment; filename="despachos.csv"');
       return res.status(200).send(toCsv(headers, rows));
