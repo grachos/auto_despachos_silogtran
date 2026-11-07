@@ -62,7 +62,12 @@ export function tabHints(html) {
     .flatMap((js) => [...js.matchAll(/[^;{}\n]{0,250}(empresa|confirmado|activo|tab)[^;{}\n]{0,250}/gi)].map((m) => m[0].trim()))
     .filter((x, i, a) => a.indexOf(x) === i).slice(0, 40).map((x) => x.slice(0, 400));
   const hidden = $('input[type=hidden]').toArray().map((el) => `${el.attribs.id || el.attribs.name}${String(el.attribs.value ?? '').trim() ? ' (lleno)' : ''}`).filter((x) => !/PRADO_/.test(x));
-  return { tabs, scripts, hidden };
+  // Every PRADO client-side control/callback definition (autocompletes, event-triggered callbacks, active buttons...) that mentions an
+  // Empresas/enturnamiento/Aceptar control: shows whether choosing the plate or pressing Aceptar fires any extra AJAX callback.
+  const all = $('script').toArray().map((el) => $(el).html() ?? '').join('\n');
+  const callbacks = [...all.matchAll(/Prado\.(?:WebUI|CallbackRequest)[\w.]*\(\s*\{[^;]*?\}\s*\)\s*;/g)].map((m) => m[0].replace(/\s+/g, ' ').trim())
+    .filter((x) => /empresa|enturn|aceptar/i.test(x)).filter((x, i, arr) => arr.indexOf(x) === i).slice(0, 30).map((x) => x.slice(0, 600));
+  return { tabs, scripts, callbacks, hidden };
 }
 
 // Dry run of EVERYTHING `confirmar` does before pressing "Grabar" (vehicle, route, dates, observaciones, anticipo "cero",
