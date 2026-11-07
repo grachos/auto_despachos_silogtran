@@ -53,7 +53,7 @@ export function applyRules(summary, { beneficiario, mode }) {
 }
 
 function buildMessage(documents, rndc) {
-  const ministry = rndc?.migrated ? `Radicado Ministerio ${rndc.radicado}` : rndc ? 'Sin migrar al Ministerio' : 'Estado del Ministerio no verificado';
+  const ministry = rndc?.migrated ? `Radicado Ministerio ${rndc.radicado}` : rndc?.mensaje ? `Respuesta del Ministerio: ${rndc.mensaje}` : rndc ? 'Sin migrar al Ministerio' : 'Estado del Ministerio no verificado';
   return `Se despachó a satisfacción. Remesa ${documents.remesa}, Manifiesto ${documents.manifiesto}. ${ministry}.`;
 }
 
@@ -147,6 +147,15 @@ async function runConfirmation(numero, { payload, uid, plan, beneficiario }, d) 
       rndc = await client.enqueue(() => d.readRndc(client, saved.documents.manifiesto));
     } catch (e) {
       out.warnings = [...out.warnings, 'No se pudo consultar el estado del Ministerio.'];
+    }
+    // The Ministry answers a few seconds after saving: if there is neither a filing number nor a message yet, wait once and read again
+    // (only while the 60 s function budget allows it).
+    if (rndc && !rndc.migrated && !rndc.mensaje && Date.now() - t0 < 38_000) {
+      await (d.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms))))(4000);
+      try {
+        const again = await client.enqueue(() => d.readRndc(client, saved.documents.manifiesto));
+        if (again) rndc = again;
+      } catch { /* keep the first reading */ }
     }
     const result = { ...out, status: rndc && !rndc.migrated ? 'DISPATCHED_NOT_MIGRATED' : 'DISPATCHED', rndc, message: buildMessage(saved.documents, rndc) };
     await d.markConfirmation(payload.jti, 'DONE', {
