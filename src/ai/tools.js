@@ -5,6 +5,11 @@ import { createPending } from '../store/ia.js';
 
 const str = (description) => ({ type: 'string', description });
 const optStr = (description) => ({ type: ['string', 'null'], description });
+const tiempo = (label) => ({
+  type: ['object', 'null'], additionalProperties: false, required: ['horas', 'minutos'],
+  properties: { horas: { type: 'integer', description: `${label}: horas` }, minutos: { type: 'integer', description: `${label}: minutos (0-59)` } },
+  description: `${label} pactado. null si la persona no lo indicó (se usa 2 h 0 min). Nunca lo preguntes.`,
+});
 const cita = (label) => ({
   type: 'object', additionalProperties: false, required: ['fecha', 'hora'],
   properties: { fecha: str(`${label}: fecha YYYY-MM-DD`), hora: str(`${label}: hora HH:mm en formato 24 h`) },
@@ -28,13 +33,15 @@ export const TOOLS = [
       strict: true,
       parameters: {
         type: 'object', additionalProperties: false,
-        required: ['numero', 'item', 'placa', 'citaCargue', 'citaDescargue', 'tipoManifiesto', 'ordenCompra', 'observacionOrdenCargue', 'observacionRemesa', 'contenedor', 'bl', 'beneficiario', 'anticipo', 'fuente', 'tipoOperacion'],
+        required: ['numero', 'item', 'placa', 'citaCargue', 'citaDescargue', 'tiempoCargue', 'tiempoDescargue', 'tipoManifiesto', 'ordenCompra', 'observacionOrdenCargue', 'observacionRemesa', 'contenedor', 'bl', 'beneficiario', 'anticipo', 'fuente', 'tipoOperacion'],
         properties: {
           numero: str('Número de la solicitud, solo dígitos'),
           item: { type: ['integer', 'null'], description: 'Ítem de la solicitud; null si solo hay uno' },
           placa: str('Placa del vehículo'),
           citaCargue: cita('Cita de cargue'),
           citaDescargue: cita('Cita de descargue'),
+          tiempoCargue: tiempo('Tiempo de cargue'),
+          tiempoDescargue: tiempo('Tiempo de descargue'),
           tipoManifiesto: optStr('Tipo de manifiesto (código o nombre); null para usar el valor por defecto'),
           ordenCompra: optStr('Orden de compra; null si no la dieron'),
           observacionOrdenCargue: optStr('Observación de la orden de cargue; null si no la dieron'),

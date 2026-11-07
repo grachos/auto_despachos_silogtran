@@ -22,6 +22,18 @@ function cita(v, label) {
   return { fecha: date(v.fecha, `${label}.fecha`), hora: time(v.hora, `${label}.hora`) };
 }
 
+// Agreed loading/unloading time (hours + minutes). Default 2 h 0 min, which is what was always sent before.
+function duration(v, label) {
+  if (v == null) return { horas: 2, minutos: 0 };
+  if (typeof v !== 'object') throw bad(`${label} debe ser { horas, minutos }.`);
+  const h = Number(v.horas ?? 0);
+  const m = Number(v.minutos ?? 0);
+  if (!Number.isInteger(h) || h < 0 || h > 99 || !Number.isInteger(m) || m < 0 || m > 59 || h * 60 + m === 0) {
+    throw bad(`${label}: horas entre 0 y 99 y minutos entre 0 y 59 (no ambos en cero).`);
+  }
+  return { horas: h, minutos: m };
+}
+
 function text(v, label, fallback) {
   const s = String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').trim();
   if (s.length > 300) throw bad(`${label} es demasiado largo (máximo 300 caracteres).`);
@@ -51,6 +63,8 @@ export function parsePreparar(body) {
     tipoManifiesto: b.tipoManifiesto == null ? null : text(b.tipoManifiesto, 'tipoManifiesto', null),
     tipoOperacion: b.tipoOperacion == null || String(b.tipoOperacion).trim() === '' ? null : text(b.tipoOperacion, 'tipoOperacion', null),
     fuente: parseFuente(b.fuente),
+    tiempoCargue: duration(b.tiempoCargue, 'tiempoCargue'),
+    tiempoDescargue: duration(b.tiempoDescargue, 'tiempoDescargue'),
     ordenCompra: text(b.ordenCompra, 'ordenCompra', 'NA'),
     observacionOrdenCargue: text(b.observacionOrdenCargue, 'observacionOrdenCargue', 'NA'),
     observacionRemesa: text(b.observacionRemesa, 'observacionRemesa', 'NA'),

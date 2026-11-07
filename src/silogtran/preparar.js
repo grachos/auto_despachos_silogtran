@@ -48,6 +48,7 @@ export async function runPreparation(client, numero, input, { keepOpen = false }
         ruta: info.ruta.ruta,
         tipoManifiesto: info.tipoManifiesto,
         fechas: { ...info.fechas, citaCargue: input.citaCargue, citaDescargue: input.citaDescargue },
+        tiempos: { cargue: input.tiempoCargue ?? { horas: 2, minutos: 0 }, descargue: input.tiempoDescargue ?? { horas: 2, minutos: 0 } },
         anticipoSugerido: anticipo,
         requiereContenedor: solicitud.requiereContenedor,
         contenedor,

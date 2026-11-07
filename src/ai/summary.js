@@ -7,6 +7,8 @@ const when = (fecha, hora) => {
 const money = (n) => `$${Number(n).toLocaleString('es-CO')}`;
 const clean = (v) => String(v ?? '—').replace(/[\u0000-\u001f]/g, ' ').slice(0, 80);
 
+const span = (t) => `${Number(t?.horas) || 0} h${Number(t?.minutos) ? ` ${Number(t.minutos)} min` : ''}`;
+
 export function buildSummaryText(r) {
   const lines = [
     '📋 *Resumen del despacho*',
@@ -21,6 +23,7 @@ export function buildSummaryText(r) {
     ...(r.tipoOperacion?.nombre ? [`Tipo de operación: ${clean(r.tipoOperacion.nombre)}`] : []),
     `Cita de cargue: ${when(r.fechas.citaCargue.fecha, r.fechas.citaCargue.hora)}`,
     `Cita de descargue: ${when(r.fechas.citaDescargue.fecha, r.fechas.citaDescargue.hora)}`,
+    ...(r.tiempos ? [`Tiempos pactados: cargue ${span(r.tiempos.cargue)} · descargue ${span(r.tiempos.descargue)}`] : []),
   ];
   if (r.contenedor) lines.push(`Contenedor: ${clean(r.contenedor.numero)} · BL: ${clean(r.contenedor.bl)}`);
   if (r.eleccion) {

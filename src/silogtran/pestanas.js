@@ -24,18 +24,20 @@ function tableHas(form, selector, match) {
 }
 
 export async function addObservaciones(form, { numero, item, input }) {
+  const tc = input.tiempoCargue ?? { horas: 2, minutos: 0 }; // tokens issued before this field existed
+  const td = input.tiempoDescargue ?? { horas: 2, minutos: 0 };
   const values = {
     itemobservaciones_ordenCompra: input.ordenCompra,
     itemobservaciones_Ordencargue: input.observacionOrdenCargue,
     itemobservaciones_Remesa: input.observacionRemesa,
     remesa_fechacompromiso: input.citaCargue.fecha,
     remesa_horacompromiso: input.citaCargue.hora,
-    remesa_tiempohoraspactadascargue: '2',
-    remesa_tiempominutospactadoscargue: '0',
+    remesa_tiempohoraspactadascargue: String(tc.horas),
+    remesa_tiempominutospactadoscargue: String(tc.minutos),
     remesa_citadescarguefecha: input.citaDescargue.fecha,
     remesa_citadescarguehora: input.citaDescargue.hora,
-    remesa_tiempohoraspactadasdescargue: '2',
-    remesa_tiempominutospactadosdescargue: '0',
+    remesa_tiempohoraspactadasdescargue: String(td.horas),
+    remesa_tiempominutospactadosdescargue: String(td.minutos),
   };
   for (const [k, v] of Object.entries(values)) form.fields[need(form, P + k)] = v;
   const target = form.buttonByGroup('Requeridosobservaciones', `${P}ctl51`);
