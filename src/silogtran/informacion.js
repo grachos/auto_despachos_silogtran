@@ -110,15 +110,28 @@ async function selectFromEmpresas(form, plate) {
     });
   }
   const pick = exact[0];
+  const applied = (list) => [...new Set(list)].map((n) => String(n).replace(/^ctl0[$_]MainModule[$_]/, '')).join(',') || '-';
+  // Browser order: (1) the company is picked (its own `change` callback, ctl6 in the page, fires), (2) the plate is picked (`change`
+  // callback ctl9), (3) "Aceptar". We used to copy everything at once and fire neither. First apply ONLY the company attributes of the
+  // chosen suggestion and fire the company callback; the plate is selected right after, so a callback that clears it cannot hurt.
+  const companyAttrs = Object.fromEntries(Object.entries(pick.attrs).filter(([k]) => k.startsWith('ctl0_mainmodule_tercero_codigo_empresa')));
+  if (Object.keys(companyAttrs).length) {
+    form.select({ attrs: companyAttrs });
+    const companyTriggers = form.triggers('ctl0_MainModule_tercero_codigo_empresa', 'change', []);
+    const byCompany = [];
+    for (const t of companyTriggers) byCompany.push(...(await form.callback(t)));
+    console.log(`[empresas] company change callbacks: ${companyTriggers.length}; fields set: ${applied(byCompany)}`);
+  } else {
+    console.log('[empresas] company change callbacks: skipped (the suggestion carries no company attributes)');
+  }
   form.select(pick);
   // The page binds a `change` callback to the plate control (TEventTriggeredCallback on vehiculo_placa_empresa; found with diag-vehiculo
   // codigo:true) that the browser fires when a plate is picked and that fills the vehicle/driver data (color, class, model, driver...)
-  // the "Aceptar" group requires. We never fired it. Fire it now, like the route's change callbacks. (The company control's own change
-  // callback is NOT fired: unknown whether it would clear the chosen plate.)
+  // the "Aceptar" group requires. Fire it, like the route's change callbacks.
   const plateTriggers = form.triggers('ctl0_MainModule_vehiculo_placa_empresa', 'change', []);
   const filledByCallback = [];
   for (const t of plateTriggers) filledByCallback.push(...(await form.callback(t)));
-  console.log(`[empresas] plate change callbacks: ${plateTriggers.length}; fields set: ${[...new Set(filledByCallback)].map((n) => String(n).replace(/^ctl0[$_]MainModule[$_]/, '')).join(',') || '-'}`);
+  console.log(`[empresas] plate change callbacks: ${plateTriggers.length}; fields set: ${applied(filledByCallback)}`);
   // NOTE: marking the Empresas tab active (activateTabOf) was removed on 2026-11-05: once it actually found the hidden field
   // (fix of its name in 5b20b10) every "Grabar" came back in <1 s without saving (3b0f12f, where it was a no-op, saved fine).
   // The browser's own "Aceptar" submit (PRADO_POSTBACK_TARGET="") was tried on 2026-11-05 and made "Grabar" answer in 0.8 s with
