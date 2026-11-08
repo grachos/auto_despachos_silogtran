@@ -66,23 +66,6 @@ export async function postGenerar(client, form) {
   }
 }
 
-// Text the Ministry (RNDC) answered for this manifest, shown next to the manifest number: `#ctl0_MainModule_mensajeManifiestoRNDC`
-// (the id is known from the page code; its real content still has to be confirmed with a failed manifest). Falls back to any other
-// non-input element whose id looks like an RNDC message box. Whitespace collapsed, capped; null when empty.
-const tidy = (t) => String(t ?? '').replace(/[\u0000-\u001f\u00a0]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 500) || null;
-export function rndcMessage($) {
-  $('script, style').remove();
-  const direct = tidy($('#ctl0_MainModule_mensajeManifiestoRNDC').text());
-  if (direct) return direct;
-  let found = null;
-  $('[id]').each((_, el) => {
-    if (found || /^(input|button|select|textarea)$/i.test(el.tagName)) return;
-    if (!/mensaje.*rndc|rndc.*mensaje/i.test(el.attribs.id)) return;
-    found = tidy($(el).text());
-  });
-  return found;
-}
-
 export function parseRndc(html) {
   const $ = cheerio.load(html);
   const text = $('#ctl0_MainModule_manifiesto_numero').text().replace(/ /g, ' ');
@@ -90,7 +73,7 @@ export function parseRndc(html) {
   const m = /^\s*(\d+)\s*-\s*(\d+)?/.exec(text);
   const f = /Fecha Hora\s*(\d{4}-\d{2}-\d{2})\s*\/\s*(\d{2}:\d{2}:\d{2})/.exec(text);
   const radicado = m?.[2] ?? null;
-  return { migrated: Boolean(radicado), radicado, fechaHora: f ? `${f[1]} ${f[2]}` : null, mensaje: rndcMessage($) };
+  return { migrated: Boolean(radicado), radicado, fechaHora: f ? `${f[1]} ${f[2]}` : null };
 }
 
 export async function readRndc(client, manifiesto) {

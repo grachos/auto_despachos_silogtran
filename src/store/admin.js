@@ -57,6 +57,13 @@ export async function pendingRndc(limit = 10) {
   );
 }
 
+// Atomic "I will tell the person": true only for the first caller (the Ministry notice is sent exactly once per dispatch).
+export async function claimRndcNotice(tokenId) {
+  const rows = await run(supabase().from('silog_confirmaciones').update({ rndc_notified_at: new Date().toISOString() })
+    .eq('token_id', tokenId).is('rndc_notified_at', null).select('token_id'));
+  return rows.length > 0;
+}
+
 export async function saveRndc(tokenId, rndc) {
   await run(supabase().from('silog_confirmaciones').update({
     radicado: rndc.radicado, rndc_migrated: rndc.migrated, rndc_fecha_hora: rndc.fechaHora, rndc_checked_at: new Date().toISOString(),

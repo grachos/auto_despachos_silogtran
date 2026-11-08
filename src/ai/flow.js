@@ -245,6 +245,11 @@ export function createFlow(d0) {
           const r = await d.confirmDispatch(row.numero, { token: row.token, ...args });
           await d.ia.finishPending(id, 'USED');
           await d.send(phone, resultText(r, row.resumen));
+          // Vehículos Activos trips go to the Ministry: if no filing number yet, wait for it in the background and tell the person.
+          if (!r.repeated && r.ministerio !== 'NO_APLICA' && !r.rndc?.migrated && r.documents?.manifiesto) {
+            const t = peekToken(row.token);
+            await d.watchMinistry?.({ phone, manifiesto: r.documents.manifiesto, jti: t?.jti ?? null, uid: t?.uid ?? null });
+          }
         } catch (e) {
           log('confirm', e);
           const map = CONFIRM_ERRORS[e?.code];
