@@ -1,6 +1,7 @@
 // The ONLY tools the model has. There is deliberately no tool to confirm/save a dispatch.
 import { ApiError } from '../http/errors.js';
-import { consultSolicitud, prepareDispatch } from '../dispatch/service.js';
+import { consultSolicitud, prepareDispatch, listSolicitudes } from '../dispatch/service.js';
+import { cleanFilters, filterList, buildListText } from '../silogtran/lista.js';
 import { createPending } from '../store/ia.js';
 
 const str = (description) => ({ type: 'string', description });
@@ -16,6 +17,26 @@ const cita = (label) => ({
 });
 
 export const TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'listar_solicitudes',
+      description: 'Lista las solicitudes de transporte que aún tienen cupos libres (las completas, como 2/2, no salen). Úsala SOLO cuando la persona no recuerda el número, da un número incompleto o pide ver solicitudes por criterio (cliente, ruta, producto, usuario de Silogtran, tipo de vehículo). Todos los filtros son opcionales (null = sin filtro). No modifica nada.',
+      strict: true,
+      parameters: {
+        type: 'object', additionalProperties: false, required: ['numero', 'usuario', 'origen', 'destino', 'cliente', 'producto', 'vehiculo'],
+        properties: {
+          numero: optStr('Número de solicitud o sus últimos dígitos (ej. «3220»); null si no lo dieron'),
+          usuario: optStr('Usuario de Silogtran que creó la solicitud (ej. AECHEVERRI); null si no lo dijeron'),
+          origen: optStr('Ciudad de origen; null si no la dijeron'),
+          destino: optStr('Ciudad de destino; null si no la dijeron'),
+          cliente: optStr('Nombre o parte del nombre del cliente (ej. «tequendama»); null si no lo dijeron'),
+          producto: optStr('Producto (ej. «aceite de palma»); null si no lo dijeron'),
+          vehiculo: optStr('Tipo de vehículo o carrocería (ej. «tractomula», «tanque»); null si no lo dijeron'),
+        },
+      },
+    },
+  },
   {
     type: 'function',
     function: {
@@ -188,8 +209,22 @@ export function nextStep(s) {
 }
 
 // Executors bound to the actor (the person linked to this phone). The actor is never a model-controlled argument.
-export function makeExecutors({ userId, send, userText, services = { consultSolicitud, prepareDispatch, createPending } }) {
+export function makeExecutors({ userId, send, userText, services = { consultSolicitud, prepareDispatch, createPending, listSolicitudes } }) {
   return {
+    async listar_solicitudes(args) {
+      await send('⏳ Buscando solicitudes en Silogtran…');
+      const f = cleanFilters(args);
+      const { rows, miUsuario } = await services.listSolicitudes(userId);
+      const matches = filterList(rows, f, miUsuario);
+      // Only a (partial) number was given and exactly one request matches: let the model continue with it (e.g. «despáchame la 3220 con placa…»).
+      const onlyNumber = f.numero && !f.usuario && !f.origen && !f.destino && !f.cliente && !f.producto && !f.vehiculo;
+      if (onlyNumber && matches.length === 1) {
+        const m = matches[0];
+        return { result: { ok: true, coincidencias: 1, solicitud: { numero: m.numero, item: m.item, origen: trunc(m.origen, 40), destino: trunc(m.destino, 40) }, siguiente: 'Es la solicitud que la persona quiso decir: sigue el flujo normal con ese número (consultar_solicitud / preparar_despacho) sin volver a preguntar.' } };
+      }
+      // Otherwise the answer is written by code (the model never retells the list): it ends the turn.
+      return { result: { ok: true, coincidencias: matches.length }, reply: buildListText(matches, f, miUsuario) };
+    },
     async consultar_solicitud(args) {
       await send('⏳ Consultando la solicitud en Silogtran…');
       const s = await services.consultSolicitud(userId, args.numero);

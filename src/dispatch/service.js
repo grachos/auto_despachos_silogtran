@@ -8,6 +8,8 @@ import { withLock } from '../store/locks.js';
 import { assertActorActive, openActorSession, sessionKey } from '../silogtran/userSession.js';
 import { buscarSolicitud } from '../silogtran/solicitud.js';
 import { runPreparation } from '../silogtran/preparar.js';
+import { readVisorList } from '../silogtran/lista.js';
+import { getUser } from '../store/usuarios.js';
 
 export function assertNumero(raw) {
   const numero = String(raw ?? '').trim();
@@ -38,5 +40,16 @@ export async function prepareDispatch(userId, rawNumero, body) {
     // uid is always written (null = user zero) so the token is bound to its owner.
     const token = signToken({ jti: randomUUID(), uid: userId ?? null, numero, item, input, anticipo: summary.anticipoSugerido });
     return { ok: true, resumen: summary, token, tokenExpiraEnSegundos: 900 };
+  });
+}
+
+// Requests with free slots for the "which can I dispatch?" question: one read of the viewer with the actor's own session.
+// Returns every row of the viewer plus the actor's Silogtran user name (to show their own requests first).
+export async function listSolicitudes(userId) {
+  await assertActorActive(userId);
+  const miUsuario = userId ? (await getUser(userId))?.silog_user ?? null : process.env.SILOG_USER ?? null;
+  return withLock(sessionKey(userId), async () => {
+    const { client } = await openActorSession(userId);
+    return { rows: await client.enqueue(() => readVisorList(client)), miUsuario };
   });
 }
