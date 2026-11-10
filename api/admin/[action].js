@@ -9,8 +9,9 @@ import invitaciones from '../../src/routes/admin/invitaciones.js';
 import diagVehiculo from '../../src/routes/admin/diag-vehiculo.js';
 import diagManifiesto from '../../src/routes/admin/diag-manifiesto.js';
 import diagSolicitudes from '../../src/routes/admin/diag-solicitudes.js';
+import diagPlaca from '../../src/routes/admin/diag-placa.js';
 
-const routes = { login, logout, usuarios, reporte, 'rndc-actualizar': rndc, invitaciones, 'diag-vehiculo': diagVehiculo, 'diag-manifiesto': diagManifiesto, 'diag-solicitudes': diagSolicitudes };
+const routes = { login, logout, usuarios, reporte, 'rndc-actualizar': rndc, invitaciones, 'diag-vehiculo': diagVehiculo, 'diag-manifiesto': diagManifiesto, 'diag-solicitudes': diagSolicitudes, 'diag-placa': diagPlaca };
 
 export default function handler(req, res) {
   const fn = Object.hasOwn(routes, req.query?.action) ? routes[req.query.action] : null;

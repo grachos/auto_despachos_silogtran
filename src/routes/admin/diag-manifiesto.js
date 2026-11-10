@@ -25,7 +25,14 @@ export function inspectManifest(html) {
     .filter((el) => /ministerio|rndc|enviar|reenv|transmit/i.test(`${el.attribs.id ?? ''} ${el.attribs.name ?? ''} ${el.attribs.value ?? ''}`))
     .map((el) => ({ id: el.attribs.id ?? el.attribs.name ?? null, value: tidy(el.attribs.value, 60) || null, disabled: el.attribs.disabled !== undefined }))
     .slice(0, 15);
-  return { numero, rndc: parseRndc(String(html)), mensajes, botones };
+  // Anything that looks like printing / a PDF: links, buttons, onclick handlers and report URLs written in scripts.
+  const raw = cheerio.load(String(html));
+  const imprimir = raw('a, input[type=submit], input[type=button], button').toArray()
+    .filter((el) => /imprimir|pdf|reporte|print|descargar/i.test(`${el.attribs.id ?? ''} ${el.attribs.name ?? ''} ${el.attribs.value ?? ''} ${el.attribs.href ?? ''} ${el.attribs.onclick ?? ''} ${raw(el).text()}`))
+    .map((el) => ({ tag: el.tagName, id: el.attribs.id ?? el.attribs.name ?? null, texto: tidy(raw(el).text() || el.attribs.value, 50) || null, href: tidy(el.attribs.href, 160) || null, onclick: tidy(el.attribs.onclick, 160) || null }))
+    .slice(0, 15);
+  const urlsPdf = [...new Set([...String(html).matchAll(/[^\s"'()<>]*(?:reportes\/|\.pdf)[^\s"'()<>]*/gi)].map((m) => tidy(m[0], 200)))].slice(0, 10);
+  return { numero, rndc: parseRndc(String(html)), mensajes, botones, imprimir, urlsPdf };
 }
 
 export default async function handler(req, res) {
