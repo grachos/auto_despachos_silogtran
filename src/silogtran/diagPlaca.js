@@ -20,6 +20,7 @@ export function tablesOf(html) {
     const head = rows.find((r) => $(r).find('th').length);
     if (!head) return;
     const headers = $(head).find('th').toArray().map((th) => tidy($(th).text(), 40));
+    if (/^(paginas|procedimientos|informes|datos de b[uú]squeda)$/i.test(headers[0] ?? '')) return; // site menu / search-form layout
     const data = rows.filter((r) => r !== head && $(r).children('td').length >= Math.max(1, headers.length - 1));
     if (!data.length && headers.length < 2) return;
     out.push({
@@ -70,12 +71,15 @@ export async function inspectPlate(client, placa) {
   });
   out.resultado = { url: String(res.url).replace(/^https?:\/\/[^/]+\//, ''), titulo: tidy(cheerio.load(res.text)('h2').first().text(), 80), tablas: tablesOf(res.text) };
   // A record link in the result list -> open the first one (a plain GET, like the browser's click).
-  const href = cheerio.load(res.text)('a[href*="Maestros.Vehiculo.Home"]').first().attr('href');
+  // (the side menu also has a plain «Home» link without a code: that one is NOT a result)
+  const href = cheerio.load(res.text)('a[href*="Maestros.Vehiculo.Home"][href*="vehiculo_codigo="]').first().attr('href');
   if (href) {
     const rec = await client.request(new URL(href, res.url).href);
     out.ficha = { href: tidy(href, 140), ...recordOf(rec.text) };
-  } else if (/Maestros\.Vehiculo\.Home/.test(String(res.url))) {
+  } else if (/Maestros\.Vehiculo\.Home/.test(String(res.url)) && /vehiculo_codigo=/.test(String(res.url))) {
     out.ficha = { href: null, ...recordOf(res.text) };
+  } else {
+    out.noEncontrada = true; // same search screen, no result link: the plate does not exist (as seen with a made-up plate)
   }
   return { ok: true, ...out };
 }
