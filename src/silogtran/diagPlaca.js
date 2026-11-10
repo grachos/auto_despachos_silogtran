@@ -57,17 +57,18 @@ export function recordOf(html) {
   return { title, selects, campos: campos.slice(0, 40) };
 }
 
-export async function inspectPlate(client, placa) {
-  const out = { placa };
+export async function inspectPlate(client, placa, estado = null) {
+  const out = { placa, estado };
   const page = await client.request(BUSCAR);
   const { form, data } = formFields(page.text);
   const plateField = `${P}vehiculo_placa`;
   if (!(plateField in data)) throw new ApiError('FORM_FIELD_MISSING', 'La pantalla de búsqueda de vehículos no tiene el campo de placa.', { status: 502, detail: plateField });
-  out.buscar = { controles: Object.keys(data).filter((k) => !/^PRADO_|IDHidden$/.test(k)).map((k) => k.replace(P, '')).slice(0, 40) };
+  const estadoSel = cheerio.load(page.text)(`select[name="${P}estado_codigo"]`);
+  out.buscar = { estados: estadoSel.find('option').toArray().map((o) => ({ valor: o.attribs.value ?? '', texto: tidy(cheerio.load(o).text(), 40), elegido: o.attribs.selected !== undefined })).slice(0, 40), controles: Object.keys(data).filter((k) => !/^PRADO_|IDHidden$/.test(k)).map((k) => k.replace(P, '')).slice(0, 40) };
   // The same request the browser sends: plate + the search link target (ctl3), button locks on.
   const res = await client.request(new URL(form.attr('action') || page.url, page.url).href, {
     method: 'POST',
-    form: { ...data, [plateField]: placa, PRADO_POSTBACK_TARGET: `${P}ctl3`, PRADO_POSTBACK_PARAMETER: 'undefined', [`${P}IDLockHidden_ctl0_MainModule_ctl3`]: 'true' },
+    form: { ...data, [plateField]: placa, ...(estado != null ? { [`${P}estado_codigo`]: String(estado) } : {}), PRADO_POSTBACK_TARGET: `${P}ctl3`, PRADO_POSTBACK_PARAMETER: 'undefined', [`${P}IDLockHidden_ctl0_MainModule_ctl3`]: 'true' },
   });
   out.resultado = { url: String(res.url).replace(/^https?:\/\/[^/]+\//, ''), titulo: tidy(cheerio.load(res.text)('h2').first().text(), 80), tablas: tablesOf(res.text) };
   // A record link in the result list -> open the first one (a plain GET, like the browser's click).

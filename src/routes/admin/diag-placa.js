@@ -1,4 +1,4 @@
-// POST /api/admin/diag-placa { placa, usuario? } — READ-ONLY. Searches the plate in Silogtran's vehicle master and, if found, reads the
+// POST /api/admin/diag-placa { placa, usuario?, estado? } — READ-ONLY. Searches the plate in Silogtran's vehicle master and, if found, reads the
 // record's catalog fields (status, affiliate type...). Used to learn the real structure before checking plates ahead of a dispatch.
 import { sendError, ApiError } from '../../http/errors.js';
 import { requireConfig } from '../../config.js';
@@ -17,12 +17,14 @@ export default async function handler(req, res) {
     requireAdmin(req);
     requireConfig();
     const placa = String(req.body?.placa ?? '').trim().toUpperCase();
-    if (!/^[A-Z0-9]{4,10}$/.test(placa)) throw new ApiError('INVALID_PARAMETER', 'Placa inválida.', { status: 400 });
+    const estado = req.body?.estado == null ? null : String(req.body.estado).trim();
+    if (estado != null && !/^\d{1,3}$/.test(estado)) throw new ApiError('INVALID_PARAMETER', 'Estado inválido (valor numérico del filtro «estado» de la búsqueda).', { status: 400 });
+    if (!(placa === '' && estado != null) && !/^[A-Z0-9]{4,10}$/.test(placa)) throw new ApiError('INVALID_PARAMETER', 'Placa inválida.', { status: 400 });
     const userId = await resolveActorId(req.body?.usuario);
     await assertActorActive(userId);
     const out = await withLock(sessionKey(userId), async () => {
       const { client } = await openActorSession(userId);
-      return client.enqueue(() => inspectPlate(client, placa));
+      return client.enqueue(() => inspectPlate(client, placa, estado));
     });
     res.status(200).json(out);
   } catch (e) {
