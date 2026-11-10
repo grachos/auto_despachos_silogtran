@@ -53,3 +53,24 @@ export async function sendButtons(to, body, buttons) {
   }
   if (!res.ok) throw new ApiError('WHATSAPP_SEND_FAILED', 'WhatsApp rechazó el envío del mensaje.', { status: 502, detail: `HTTP ${res.status} ${(await res.text().catch(() => '')).slice(0, 300)}` });
 }
+
+// Message with ONE link button («cta_url»): the button label (max 20 chars) opens the URL. Used for the manifest PDF.
+export async function sendLinkButton(to, body, label, url) {
+  const version = process.env.WHATSAPP_API_VERSION || 'v23.0';
+  let res;
+  try {
+    res = await fetch(`https://graph.facebook.com/${version}/${process.env.WHATSAPP_PHONE_ID}/messages`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'interactive',
+        interactive: { type: 'cta_url', body: { text: String(body).slice(0, 1024) }, action: { name: 'cta_url', parameters: { display_text: String(label).slice(0, 20), url } } },
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (e) {
+    throw new ApiError('WHATSAPP_SEND_FAILED', 'No se pudo enviar el mensaje por WhatsApp.', { status: 502, detail: e?.message });
+  }
+  if (!res.ok) throw new ApiError('WHATSAPP_SEND_FAILED', 'WhatsApp rechazó el envío del mensaje.', { status: 502, detail: `HTTP ${res.status} ${(await res.text().catch(() => '')).slice(0, 300)}` });
+}
+

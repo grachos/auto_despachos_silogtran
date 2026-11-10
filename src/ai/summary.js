@@ -53,12 +53,13 @@ export const BUTTON_ID = /^(ctot|ccero|cok|canc|rep):([0-9a-f]{8}-[0-9a-f]{4}-[0
 
 export const fuenteLabel = (f) => (f === 'empresas' ? 'pestaña Empresas' : 'Vehículos Activos');
 
-export function resultText(r, resumen) {
+// `withLink:false` leaves the PDF link out of the text (it goes in its own «Imprimir manifiesto» button).
+export function resultText(r, resumen, { withLink = true } = {}) {
   const d = r.documents ?? {};
   const lines = [r.repeated ? 'ℹ️ Este despacho ya estaba confirmado.' : '✅ ¡Despacho confirmado!', `Orden de cargue: ${d.ordenCargue ?? '—'}`, `Remesa: ${d.remesa ?? '—'}`, `Manifiesto: ${d.manifiesto ?? '—'}`];
   if (d.transferencia) lines.push(`Transferencia: ${d.transferencia}`);
   if (resumen) lines.push(`Cargado por: ${fuenteLabel(resumen.fuente)}`);
-  if (d.manifiestoPdf) lines.push(`📄 Manifiesto en PDF: ${d.manifiestoPdf}`);
+  if (withLink && d.manifiestoPdf) lines.push(`📄 Manifiesto en PDF: ${d.manifiestoPdf}`);
   if (r.ministerio !== 'NO_APLICA') lines.push(r.rndc?.migrated ? `Ministerio: radicado ${r.rndc.radicado}` : 'Ministerio: verificando el radicado… te aviso por aquí en un momento.');
   return lines.join('\n');
 }

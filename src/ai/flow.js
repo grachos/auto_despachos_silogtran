@@ -244,7 +244,11 @@ export function createFlow(d0) {
           const args = external ? { anticipo: el.anticipo, beneficiario: el.beneficiario.id } : { anticipo: kind === 'ctot' ? 'total' : 'cero' };
           const r = await d.confirmDispatch(row.numero, { token: row.token, ...args });
           await d.ia.finishPending(id, 'USED');
-          await d.send(phone, resultText(r, row.resumen));
+          const pdf = r.documents?.manifiestoPdf;
+          if (pdf && d.sendLinkButton) {
+            // The manifest PDF goes as a link button «Imprimir manifiesto»; if WhatsApp refuses it, the plain text carries the link.
+            await d.sendLinkButton(phone, resultText(r, row.resumen, { withLink: false }), 'Imprimir manifiesto', pdf).catch(async () => d.send(phone, resultText(r, row.resumen)));
+          } else await d.send(phone, resultText(r, row.resumen));
           // Vehículos Activos trips go to the Ministry: if no filing number yet, wait for it in the background and tell the person.
           if (!r.repeated && r.ministerio !== 'NO_APLICA' && !r.rndc?.migrated && r.documents?.manifiesto) {
             const t = peekToken(row.token);
