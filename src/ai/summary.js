@@ -58,6 +58,7 @@ export function resultText(r, resumen) {
   const lines = [r.repeated ? 'ℹ️ Este despacho ya estaba confirmado.' : '✅ ¡Despacho confirmado!', `Orden de cargue: ${d.ordenCargue ?? '—'}`, `Remesa: ${d.remesa ?? '—'}`, `Manifiesto: ${d.manifiesto ?? '—'}`];
   if (d.transferencia) lines.push(`Transferencia: ${d.transferencia}`);
   if (resumen) lines.push(`Cargado por: ${fuenteLabel(resumen.fuente)}`);
+  if (d.manifiestoPdf) lines.push(`📄 Manifiesto en PDF: ${d.manifiestoPdf}`);
   if (r.ministerio !== 'NO_APLICA') lines.push(r.rndc?.migrated ? `Ministerio: radicado ${r.rndc.radicado}` : 'Ministerio: verificando el radicado… te aviso por aquí en un momento.');
   return lines.join('\n');
 }

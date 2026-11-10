@@ -10,6 +10,7 @@ import { runPreparation } from './silogtran/preparar.js';
 import { clearPending } from './silogtran/despacho.js';
 import { addAnticipoPago, setAnticipoCero, setAnticipoValor, setBeneficiario } from './silogtran/anticipo.js';
 import { postGenerar, readRndc } from './silogtran/grabar.js';
+import { getManifestPdfUrl } from './silogtran/imprimir.js';
 import { setConfirmadoPor } from './silogtran/informacion.js';
 
 export function parseConfirmar(body) {
@@ -60,7 +61,7 @@ function buildMessage(documents, rndc, { noMinistry = false } = {}) {
 
 const realDeps = {
   verifyToken, resolveActorId, assertActorActive, withLock, sessionKey, claimConfirmation, markConfirmation,
-  openActorSession, runPreparation, clearPending, setAnticipoCero, setAnticipoValor, setBeneficiario, addAnticipoPago, postGenerar, readRndc, setConfirmadoPor,
+  openActorSession, runPreparation, clearPending, setAnticipoCero, setAnticipoValor, setBeneficiario, addAnticipoPago, postGenerar, readRndc, setConfirmadoPor, getManifestPdfUrl,
 };
 
 export async function confirmDispatch(numero, { token, anticipo, beneficiario, usuario }, d = realDeps) {
@@ -143,10 +144,19 @@ async function runConfirmation(numero, { payload, uid, plan, beneficiario }, d) 
       prepare_ms: prepareMs, save_ms: saveMs, total_ms: Date.now() - t0,
     };
     // Trips loaded through the Empresas tab are NOT reported to the Ministry (RNDC): nothing to read or show.
+    // The public PDF link of the manifest is best effort (never throws, ~2-4 s): the saved state is persisted first.
+    const withPdf = async (documents) => {
+      const manifiestoPdf = await client.enqueue(() => d.getManifestPdfUrl?.(client, documents.manifiesto)).catch(() => null);
+      return manifiestoPdf ? { ...documents, manifiestoPdf } : documents;
+    };
     if (fuente === 'empresas') {
       const resultEmpresas = { ...out, status: 'DISPATCHED', rndc: null, ministerio: 'NO_APLICA', message: buildMessage(saved.documents, null, { noMinistry: true }) };
       await d.markConfirmation(payload.jti, 'DONE', { result: resultEmpresas, fields: metrics });
-      return resultEmpresas;
+      const documents = await withPdf(saved.documents);
+      if (documents === saved.documents) return resultEmpresas;
+      const withLink = { ...resultEmpresas, documents };
+      await d.markConfirmation(payload.jti, 'DONE', { result: withLink });
+      return withLink;
     }
     await d.markConfirmation(payload.jti, 'DONE', { result: { ...out, message: buildMessage(saved.documents, null) }, fields: metrics });
 
@@ -156,7 +166,8 @@ async function runConfirmation(numero, { payload, uid, plan, beneficiario }, d) 
     } catch (e) {
       out.warnings = [...out.warnings, 'No se pudo consultar el estado del Ministerio.'];
     }
-    const result = { ...out, status: rndc && !rndc.migrated ? 'DISPATCHED_NOT_MIGRATED' : 'DISPATCHED', rndc, message: buildMessage(saved.documents, rndc) };
+    const documents = await withPdf(saved.documents);
+    const result = { ...out, documents, status: rndc && !rndc.migrated ? 'DISPATCHED_NOT_MIGRATED' : 'DISPATCHED', rndc, message: buildMessage(documents, rndc) };
     await d.markConfirmation(payload.jti, 'DONE', {
       result,
       fields: rndc ? { radicado: rndc.radicado, rndc_migrated: rndc.migrated, rndc_fecha_hora: rndc.fechaHora, rndc_checked_at: new Date().toISOString() } : undefined,

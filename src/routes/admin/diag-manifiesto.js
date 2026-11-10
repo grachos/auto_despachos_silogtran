@@ -8,7 +8,7 @@ import { requireAdmin } from '../../http/admin.js';
 import { withLock } from '../../store/locks.js';
 import { assertActorActive, openActorSession, resolveActorId, sessionKey } from '../../silogtran/userSession.js';
 import { parseRndc } from '../../silogtran/grabar.js';
-import { formFields } from '../../silogtran/client.js';
+import { pressPrintButton } from '../../silogtran/imprimir.js';
 
 const tidy = (t, n = 400) => String(t ?? '').replace(/[\u0000-\u001f ]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 
@@ -36,26 +36,14 @@ export function inspectManifest(html) {
   return { numero, rndc: parseRndc(String(html)), mensajes, botones, imprimir, urlsPdf };
 }
 
-// OPT-IN, only when the admin asks for it by name: presses ONE print button (a plain postback, like the browser) and reports what came back
+// OPT-IN, only when the admin asks for it by name: presses ONE print button (see silogtran/imprimir.js) and reports what came back
 // (status, final URL, content type, report URLs, window.open snippets). Never follows or stores the PDF; prints can leave a trace in Silogtran.
 export async function pressPrint(client, manifiesto, label) {
-  const url = `index.php?page=Despacho.Manifiesto_003.Home_111&manifiesto_codigo=${encodeURIComponent(manifiesto)}`;
-  const page = await client.request(url);
-  const $ = cheerio.load(page.text);
-  const want = String(label).toLowerCase().replace(/\s+/g, '');
-  const btn = $('input[type=submit], input[type=button], button').toArray()
-    .find((el) => String(el.attribs.value ?? $(el).text()).toLowerCase().replace(/\s+/g, '') === want);
-  if (!btn?.attribs.name) throw new ApiError('PRINT_BUTTON_NOT_FOUND', 'No se encontró ese botón de impresión en el manifiesto.', { status: 404 });
-  const { form, data } = formFields(page.text);
-  const action = new URL(form.attr('action') || page.url, page.url).href;
-  // Same as the browser capture: a plain submit (empty PRADO_POSTBACK_TARGET/PARAMETER), the button name=value and every IDLockHidden_* = true.
-  const form2 = { ...data, PRADO_POSTBACK_TARGET: '', PRADO_POSTBACK_PARAMETER: '', [btn.attribs.name]: btn.attribs.value ?? '' };
-  for (const k of Object.keys(form2)) if (/IDLockHidden_/.test(k)) form2[k] = 'true';
-  const res = await client.request(action, { method: 'POST', form: form2 });
+  const { res, btn } = await pressPrintButton(client, manifiesto, label);
   const isText = /text|json|xml|javascript/i.test(res.type);
   const text = isText ? res.text : '';
   return {
-    boton: { id: btn.attribs.id ?? null, name: btn.attribs.name },
+    boton: btn,
     status: res.status, urlFinal: res.url.replace(/Hash=[^&]+/i, 'Hash=…'), type: res.type, bytes: res.body.length,
     contentDisposition: res.headers.get('content-disposition'),
     reportUrls: [...new Set([...text.matchAll(/[^\s"'()<>\\]*(?:reportes\/|\.pdf)[^\s"'()<>\\]*/gi)].map((m) => tidy(m[0], 220)))].slice(0, 10),
