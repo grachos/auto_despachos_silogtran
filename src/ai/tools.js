@@ -138,6 +138,7 @@ export function statedInMessage(userText, { rol, anticipo, max }) {
   return { roleOk, valueOk };
 }
 
+export const plateInactiveText = (placa) => `La placa ${String(placa).replace(/[^A-Z0-9]/g, '')} está INACTIVA en Silogtran, así que no puedo despachar con ella. Pide que la activen o dame otra placa y sigo con el despacho.`;
 export const plateNotFoundText = (placa) => `No encontré la placa ${String(placa).replace(/[^A-Z0-9]/g, '')} en Silogtran. Revisa que esté bien escrita (letras y números) y, si la dictaste por voz, escríbela. Cuando me des la placa correcta sigo con el despacho.`;
 const pesos = (n) => `$${Number(n).toLocaleString('es-CO')}`;
 
@@ -244,9 +245,9 @@ export function makeExecutors({ userId, send, userText, services = { consultSoli
       // Quick look at the vehicle master first: a plate that does not exist is told at once (and a mis-heard voice note gets caught here).
       // Only a clear «does not exist» stops the turn; any doubt (null) continues with the normal preparation.
       const placa = String(args.placa ?? '').trim().toUpperCase();
-      if (placa && (await Promise.resolve(services.checkPlate?.(userId, placa)).catch(() => null)) === false) {
-        return { result: { ok: false, preparado: false, code: 'PLATE_NOT_FOUND' }, reply: plateNotFoundText(placa) };
-      }
+      const plate = placa ? await Promise.resolve(services.checkPlate?.(userId, placa)).catch(() => null) : null;
+      if (plate === 'missing') return { result: { ok: false, preparado: false, code: 'PLATE_NOT_FOUND' }, reply: plateNotFoundText(placa) };
+      if (plate === 'inactive') return { result: { ok: false, preparado: false, code: 'PLATE_INACTIVE' }, reply: plateInactiveText(placa) };
       const r = await services.prepareDispatch(userId, args.numero, args);
       const ext = chooseExternal(r.resumen, args, userText);
       if (ext.reply) return { result: ext.ask, reply: ext.reply }; // fixed text built by code (includes the maximum)

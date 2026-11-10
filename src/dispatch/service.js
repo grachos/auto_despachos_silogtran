@@ -9,7 +9,7 @@ import { assertActorActive, openActorSession, sessionKey } from '../silogtran/us
 import { buscarSolicitud } from '../silogtran/solicitud.js';
 import { runPreparation } from '../silogtran/preparar.js';
 import { readVisorList } from '../silogtran/lista.js';
-import { plateExists } from '../silogtran/placa.js';
+import { plateStatus } from '../silogtran/placa.js';
 import { getUser } from '../store/usuarios.js';
 
 export function assertNumero(raw) {
@@ -55,14 +55,14 @@ export async function listSolicitudes(userId) {
   });
 }
 
-// Quick read-only check of the plate in the vehicle master, BEFORE the slow dispatch preparation. true | false | null (null = unknown:
+// Quick read-only check of the plate in the vehicle master, BEFORE the slow dispatch preparation. 'ok' | 'missing' | 'inactive' | null (null = unknown:
 // session busy, page changed, any error; the caller then just continues and the normal preparation decides).
 export async function checkPlate(userId, placa) {
   try {
     await assertActorActive(userId);
     return await withLock(sessionKey(userId), async () => {
       const { client } = await openActorSession(userId);
-      return client.enqueue(() => plateExists(client, placa));
+      return client.enqueue(() => plateStatus(client, placa));
     });
   } catch (e) {
     console.error('[placa] check skipped:', e?.code || e?.name || 'error');
