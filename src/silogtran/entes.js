@@ -68,3 +68,82 @@ export async function reviewVehicle(client, placa, deps = { fetchVehicleSheet, s
   const sinDato = ['conductor', 'propietario', 'poseedor'].filter((r) => !entes[r]);
   return { placa: plate, vehiculo, entes, inactivos, sinDato, listoParaDespachar: inactivos.length === 0 && sinDato.length === 0 };
 }
+
+// ---------- text for the person (Spanish) ----------
+const mark = (estado) => ({ ACTIVO: '✅', INACTIVO: '⛔', ANULADO: '🚫' }[estado] ?? '❔');
+const label = (estado) => estado ?? 'no pude verificarlo';
+
+export function reviewText(r) {
+  const lines = [`Placa ${r.placa}: ${mark(r.vehiculo.estado)} ${label(r.vehiculo.estado)}`];
+  if (r.entes.trailer) lines.push(`Trailer ${r.entes.trailer.nombre}: ❔ aún no puedo verificar su estado (revísalo en Silogtran)`);
+  else lines.push('Trailer: no tiene');
+  for (const [role, name] of [['conductor', 'Conductor'], ['propietario', 'Propietario'], ['poseedor', 'Poseedor']]) {
+    const e = r.entes[role];
+    lines.push(e ? `${name} ${e.nombre}: ${mark(e.estado)} ${label(e.estado)}` : `${name}: ❔ la ficha no lo trae`);
+  }
+  lines.push(r.listoParaDespachar
+    ? '→ Todo activo (el trailer no se verificó): la placa quedaría lista para despachar.'
+    : `→ Todavía NO se puede despachar. Falta activar: ${[...new Set(r.inactivos.map((i) => i.ente))].join(', ') || 'revisar datos faltantes'}.`);
+  return lines.join('\n');
+}
+
+const OUTCOME = { ACTIVADO: ['✅', 'quedó activado'], YA_ACTIVO: ['➖', 'ya estaba activo'], RECHAZADO: ['❌', 'no se activó'], ERROR: ['⚠️', 'no pude activarlo'], PENDIENTE: ['⏳', 'quedó pendiente (tiempo agotado); vuelve a pedirlo'] };
+export function activationText(placa, results, notes = []) {
+  const lines = [`Resultado para la placa ${placa}:`];
+  for (const x of results) {
+    const [icon, text] = OUTCOME[x.resultado] ?? ['❔', x.resultado];
+    lines.push(`${icon} ${x.etiqueta}${x.nombre ? ` ${x.nombre}` : ''}: ${text}${x.detalle ? ` — ${x.detalle}` : ''}`);
+  }
+  lines.push(...notes);
+  return lines.join('\n');
+}
+
+// ---------- activation of the chosen entes ----------
+export const ACTIVABLE_ENTES = ['placa', 'conductor', 'propietario', 'poseedor'];
+const KNOWN_REFUSALS = ['ACTIVATE_NOT_ALLOWED', 'VEHICLE_ANNULLED', 'THIRD_PARTY_ANNULLED', 'PLATE_NOT_FOUND', 'THIRD_PARTY_NOT_FOUND', 'AMBIGUOUS_OPTION', 'ROW_STATE_UNKNOWN', 'ACTIVATE_NOT_APPLIED', 'ACTIVATE_CHECKBOX_MISSING'];
+
+// Activates the chosen entes of a plate. ORDER: terceros (each distinct person ONCE) -> plate. The trailer is not supported yet (its module is not
+// mapped). Each step is independent (a refusal does not stop the others) but a time budget protects Vercel's 60 s: what does not fit is PENDIENTE.
+// `deps`: { review, activateThirdParty, activateVehicle }. Returns { results[], notes[], review }.
+export async function activateEntities(client, placa, entes, deps, { budgetMs = 40_000, now = Date.now } = {}) {
+  const t0 = now();
+  const chosen = new Set((entes ?? []).includes('todos') ? ACTIVABLE_ENTES : entes);
+  for (const e of chosen) if (!ACTIVABLE_ENTES.includes(e)) throw new ApiError('INVALID_PARAMETER', `Ente no válido: ${String(e).slice(0, 20)}. Usa: ${ACTIVABLE_ENTES.join(', ')} o todos.`, { status: 400 });
+  if (!chosen.size) throw new ApiError('INVALID_PARAMETER', 'Indica qué activar: placa, conductor, propietario, poseedor o todos.', { status: 400 });
+  const review = await deps.review(client, placa);
+
+  // distinct persons among the chosen third-party roles
+  const persons = new Map(); // id -> { id, nombre, estado, roles[] }
+  for (const role of ['conductor', 'propietario', 'poseedor']) {
+    const e = review.entes[role];
+    if (!chosen.has(role) || !e?.id) continue;
+    const p = persons.get(e.id) ?? { id: e.id, nombre: e.nombre, estado: e.estado, roles: [] };
+    p.roles.push(role);
+    persons.set(e.id, p);
+  }
+  const results = [];
+  const notes = [];
+  const tooLate = () => now() - t0 > budgetMs;
+  const run = async (etiqueta, nombre, fn, already) => {
+    if (already) return results.push({ etiqueta, nombre, resultado: 'YA_ACTIVO' });
+    if (tooLate()) return results.push({ etiqueta, nombre, resultado: 'PENDIENTE' });
+    try {
+      const out = await fn();
+      results.push({ etiqueta, nombre, resultado: out.changed ? 'ACTIVADO' : 'YA_ACTIVO', ...(out.changed && out.verified === false ? { detalle: 'no pude verificarlo; revisa en Silogtran' } : {}) });
+    } catch (e) {
+      if (e instanceof ApiError && KNOWN_REFUSALS.includes(e.code)) results.push({ etiqueta, nombre, resultado: 'RECHAZADO', codigo: e.code, detalle: e.extra?.faltantes?.length ? `faltan: ${e.extra.faltantes.join(', ')}` : e.message, faltantes: e.extra?.faltantes });
+      else { console.error('[entes] activation failed:', e?.code || e?.name || 'error'); results.push({ etiqueta, nombre, resultado: 'ERROR', codigo: e?.code ?? 'ERROR' }); }
+    }
+  };
+  for (const p of persons.values()) {
+    const etiqueta = p.roles.map((r) => r[0].toUpperCase() + r.slice(1)).join('/');
+    await run(etiqueta, p.nombre, () => deps.activateThirdParty(client, { id: p.id, documento: p.nombre }), p.estado === 'ACTIVO');
+    results[results.length - 1].ids = p.id;
+    // a person activated for one role is active for ALL their roles on this plate
+    const others = ['conductor', 'propietario', 'poseedor'].filter((r) => !p.roles.includes(r) && review.entes[r]?.id === p.id);
+    if (others.length) notes.push(`${p.nombre} figura también como ${others.join(' y ')}: se activa una sola vez por persona.`);
+  }
+  if (chosen.has('placa')) await run('Placa', placa, () => deps.activateVehicle(client, placa), review.vehiculo.estado === 'ACTIVO');
+  if ((entes ?? []).includes('todos') && review.entes.trailer) notes.push('El trailer no se activó: ese módulo aún no está disponible por este medio (actívalo en Silogtran).');
+  return { results, notes, review };
+}

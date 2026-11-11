@@ -19,7 +19,7 @@ export async function handleMessage(msg, deps, principal) {
         protocolVersion: VERSIONS.includes(wanted) ? wanted : VERSIONS[0],
         capabilities: { tools: { listChanged: false } },
         serverInfo: INFO,
-        instructions: 'Activa vehículos en Silogtran por placa. Consulta primero el estado y confirma con la persona antes de activar.',
+        instructions: 'Activa en Silogtran lo que hace falta para despachar una placa: el vehículo, su trailer y los terceros conductor, propietario y poseedor (pueden ser la misma persona o distintas). Flujo OBLIGATORIO: (1) llama a revisar_vehiculo, (2) muestra a la persona el estado de CADA ente con su nombre, (3) pregúntale qué quiere activar (solo la placa, algunos entes concretos o todos) y espera su respuesta, (4) solo entonces llama a activar_vehiculo con exactamente lo que eligió. Nunca elijas por la persona ni actives sin que lo haya pedido. Para un tercero suelto usa consultar_tercero / activar_tercero con su documento.',
       });
     }
     case 'ping': return ok(msg.id, {});
