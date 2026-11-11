@@ -69,8 +69,8 @@ $('logout').addEventListener('click', async () => { await api('/api/admin/logout
 // ---- tabs ----
 function openTab(name) {
   document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === name));
-  ['resumen', 'usuarios', 'despachos', 'invitaciones'].forEach((n) => $('tab-' + n).classList.toggle('hidden', n !== name));
-  if (name === 'resumen') loadResumen(); else if (name === 'usuarios') loadUsers(); else if (name === 'despachos') loadDispatches();
+  ['resumen', 'usuarios', 'despachos', 'invitaciones', 'mcp'].forEach((n) => $('tab-' + n).classList.toggle('hidden', n !== name));
+  if (name === 'resumen') loadResumen(); else if (name === 'usuarios') loadUsers(); else if (name === 'despachos') loadDispatches(); else if (name === 'mcp') loadMcp();
 }
 document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => openTab(t.dataset.tab)));
 
@@ -205,3 +205,45 @@ async function start() {
   openTab('resumen');
 }
 start();
+
+// ---- MCP ----
+async function loadMcp() {
+  const res = await api('/api/admin/mcp');
+  if (!(await guard(res))) return;
+  if (res.status !== 200) { showMsg($('mcpMsg'), 'err', res.body.message || 'No se pudo cargar.'); return; }
+  hideMsg($('mcpMsg'));
+  const toggle = (u) => {
+    const on = u.alcances.includes('activar');
+    const b = el('button', on ? 'Quitar' : 'Habilitar', on ? 'btn small' : 'btn small primary');
+    b.type = 'button';
+    b.addEventListener('click', async () => {
+      if (on && !confirm(`¿Quitar el acceso de ${u.nombre}? Sus conexiones dejan de funcionar.`)) return;
+      b.disabled = true;
+      const r = await api('/api/admin/mcp-permiso', { method: 'POST', body: JSON.stringify({ userId: u.id, scope: 'activar', enabled: !on }) });
+      if (r.status !== 200) showMsg($('mcpMsg'), 'err', r.body.message || 'No se pudo cambiar el permiso.');
+      loadMcp();
+    });
+    return b;
+  };
+  renderTable($('mcpUsers'), [
+    { h: 'Persona', v: (u) => u.nombre }, { h: 'Usuario Silogtran', v: (u) => dash(u.usuarioSilogtran) },
+    { h: 'Estado', v: (u) => u.estado }, { h: 'Activar vehículos', v: (u) => (u.alcances.includes('activar') ? badge('Habilitado', 'ok') : badge('No', 'mute')) },
+    { h: '', v: toggle },
+  ], res.body.usuarios, 'Sin usuarios.');
+  renderTable($('mcpConns'), [
+    { h: 'Persona', v: (c) => c.usuario }, { h: 'Cliente', v: (c) => dash(c.etiqueta) }, { h: 'Alcance', v: (c) => c.alcance },
+    { h: 'Creada', v: (c) => when(c.creada) }, { h: 'Último uso', v: (c) => (c.ultimoUso ? when(c.ultimoUso) : 'sin usar') },
+    { h: '', v: (c) => {
+      const b = el('button', 'Revocar', 'btn small');
+      b.type = 'button';
+      b.addEventListener('click', async () => {
+        if (!confirm('¿Revocar esta conexión?')) return;
+        b.disabled = true;
+        await api('/api/admin/mcp-revocar', { method: 'POST', body: JSON.stringify({ id: c.id }) });
+        loadMcp();
+      });
+      return b;
+    } },
+  ], res.body.conexiones, 'No hay conexiones activas.');
+}
+

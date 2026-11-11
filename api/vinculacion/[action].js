@@ -1,8 +1,9 @@
 // One function for /api/vinculacion/codigo and /api/vinculacion/estado (see the 12-function limit note in admin/[action].js).
 import codigo from '../../src/routes/vinculacion/codigo.js';
 import estado from '../../src/routes/vinculacion/estado.js';
+import { ticket as mcpTicket, conexiones as mcpConexiones, revocar as mcpRevocar } from '../../src/routes/vinculacion/mcp.js';
 
-const routes = { codigo, estado };
+const routes = { codigo, estado, 'mcp-ticket': mcpTicket, 'mcp-conexiones': mcpConexiones, 'mcp-revocar': mcpRevocar };
 
 export default function handler(req, res) {
   const fn = Object.hasOwn(routes, req.query?.action) ? routes[req.query.action] : null;

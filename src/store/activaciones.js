@@ -4,7 +4,7 @@ import { supabase } from './supabase.js';
 export async function logActivation(row) {
   try {
     const { error } = await supabase().from('silog_activaciones').insert({
-      tipo: row.tipo, referencia: String(row.referencia).slice(0, 40), actor: row.actor ?? 'default', resultado: row.resultado,
+      tipo: row.tipo, referencia: String(row.referencia).slice(0, 40), actor: row.actor ?? 'default', user_id: row.user_id ?? null, conexion_id: row.conexion_id ?? null, resultado: row.resultado,
       error_code: row.error_code ?? null, detalle: row.detalle ? String(row.detalle).slice(0, 400) : null, ms: row.ms ?? null,
     });
     if (error) console.error('[mcp] audit failed:', error.code || 'error');

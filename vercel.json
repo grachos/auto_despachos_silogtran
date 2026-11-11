@@ -52,7 +52,7 @@
       ]
     },
     {
-      "source": "/(invitacion|vincular|admin)(.*)",
+      "source": "/(invitacion|vincular|admin|mcp)(.*)",
       "headers": [
         {
           "key": "Cache-Control",

@@ -26,6 +26,7 @@
     <button class="tab" data-tab="usuarios" type="button">Usuarios</button>
     <button class="tab" data-tab="despachos" type="button">Despachos</button>
     <button class="tab" data-tab="invitaciones" type="button">Invitaciones</button>
+    <button class="tab" data-tab="mcp" type="button">MCP</button>
   </div>
 
   <section id="tab-resumen">
@@ -71,6 +72,14 @@
       <div class="row"><button id="copy" class="btn" type="button">Copiar link</button></div>
       <p id="exp" class="muted"></p>
     </div>
+  </section>
+  <section id="tab-mcp" class="hidden">
+    <p class="muted">Habilita el acceso MCP por persona. Cada una genera su ticket en <b>/mcp</b> y las activaciones quedan a su nombre en Silogtran. Quitar el permiso corta sus conexiones al instante.</p>
+    <div id="mcpMsg" class="msg hidden" role="status"></div>
+    <h2>Permisos</h2>
+    <div class="scroll"><table id="mcpUsers"></table></div>
+    <h2>Conexiones activas</h2>
+    <div class="scroll"><table id="mcpConns"></table></div>
   </section>
 </div>
 

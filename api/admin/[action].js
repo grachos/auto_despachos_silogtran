@@ -11,8 +11,9 @@ import diagManifiesto from '../../src/routes/admin/diag-manifiesto.js';
 import diagSolicitudes from '../../src/routes/admin/diag-solicitudes.js';
 import diagPlaca from '../../src/routes/admin/diag-placa.js';
 import diagActivar from '../../src/routes/admin/diag-activar.js';
+import mcpAdmin, { permiso as mcpPermiso, revocar as mcpRevocar } from '../../src/routes/admin/mcp.js';
 
-const routes = { login, logout, usuarios, reporte, 'rndc-actualizar': rndc, invitaciones, 'diag-vehiculo': diagVehiculo, 'diag-manifiesto': diagManifiesto, 'diag-solicitudes': diagSolicitudes, 'diag-placa': diagPlaca, 'diag-activar': diagActivar };
+const routes = { login, logout, usuarios, reporte, 'rndc-actualizar': rndc, invitaciones, 'diag-vehiculo': diagVehiculo, 'diag-manifiesto': diagManifiesto, 'diag-solicitudes': diagSolicitudes, 'diag-placa': diagPlaca, 'diag-activar': diagActivar, mcp: mcpAdmin, 'mcp-permiso': mcpPermiso, 'mcp-revocar': mcpRevocar };
 
 export default function handler(req, res) {
   const fn = Object.hasOwn(routes, req.query?.action) ? routes[req.query.action] : null;

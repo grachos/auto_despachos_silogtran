@@ -1,7 +1,7 @@
 // OAuth 2.1 endpoints for the MCP (authorization code + PKCE S256, public clients, dynamic registration). One module, dispatched from api/oauth/[action].js.
 import { ApiError, sendError } from '../http/errors.js';
 import { requireEnv } from '../config.js';
-import { baseUrl, accessKeyOk, registerClient, readClient, makeCode, exchange } from '../mcp/auth.js';
+import { baseUrl, authorizeSecret, registerClient, readClient, makeCode, exchange } from '../mcp/auth.js';
 
 const cors = (res) => {
   res.setHeader('access-control-allow-origin', '*');
@@ -36,7 +36,7 @@ export function register(req, res) {
   cors(res);
   if (preflight(req, res)) return;
   try {
-    requireEnv('TOKEN_SECRET', 'MCP_KEY');
+    requireEnv('TOKEN_SECRET');
     if (req.method !== 'POST') return json(res, 405, { error: 'invalid_request' });
     const out = registerClient(req.body);
     return json(res, out.error ? 400 : 201, out);
@@ -58,33 +58,33 @@ const FIELDS = ['response_type', 'client_id', 'redirect_uri', 'code_challenge', 
 
 export async function authorize(req, res) {
   try {
-    requireEnv('SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'TOKEN_SECRET', 'MCP_KEY');
+    requireEnv('SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'TOKEN_SECRET');
     const p = req.method === 'POST' ? (req.body ?? {}) : (req.query ?? {});
     const client = readClient(p.client_id);
     // Bad client or redirect: never redirect, just show the error.
     if (!client || !client.ru.includes(String(p.redirect_uri))) return page(res, 400, '<h1>Solicitud inválida</h1><p>El cliente o la dirección de retorno no son válidos. Vuelve a conectar desde tu aplicación.</p>');
     if (p.response_type !== 'code' || p.code_challenge_method !== 'S256' || !p.code_challenge) return page(res, 400, '<h1>Solicitud inválida</h1><p>Falta PKCE (S256).</p>');
     const hidden = FIELDS.map((f) => `<input type="hidden" name="${f}" value="${esc(p[f])}">`).join('');
-    const form = (msg) => `<h1>Autorizar acceso</h1><p><b>${esc(client.name)}</b> pide permiso para <b>consultar y activar vehículos en Silogtran</b>. Escribe la clave de acceso para continuar.</p>${msg ? `<p class="err">${esc(msg)}</p>` : ''}<form method="post" action="/api/oauth/authorize">${hidden}<input type="password" name="key" autocomplete="current-password" placeholder="Clave de acceso" required autofocus><button type="submit">Autorizar</button></form>`;
+    const form = (msg) => `<h1>Autorizar acceso</h1><p><b>${esc(client.name)}</b> pide permiso para <b>consultar y activar vehículos en Silogtran</b>. Escribe tu <b>ticket de acceso</b> (lo generas en la página <b>/mcp</b> después de entrar con tu link) para continuar.</p>${msg ? `<p class="err">${esc(msg)}</p>` : ''}<form method="post" action="/api/oauth/authorize">${hidden}<input type="password" name="key" autocomplete="off" placeholder="Ticket de acceso" aria-label="Ticket de acceso" required autofocus><button type="submit">Autorizar</button></form>`;
     if (req.method !== 'POST') return page(res, 200, form());
-    let ok;
-    try { ok = await accessKeyOk(req, String(p.key ?? '')); } catch (e) { if (e instanceof ApiError && e.status === 429) return page(res, 429, form(e.message)); throw e; }
-    if (!ok) return page(res, 401, form('Clave incorrecta.'));
+    let bind;
+    try { bind = await authorizeSecret(req, p.key, client.name); } catch (e) { if (e instanceof ApiError && [403, 409, 429].includes(e.status)) return page(res, e.status, form(e.message)); throw e; }
+    if (!bind) return page(res, 401, form('Ticket incorrecto, vencido o ya usado.'));
     const url = new URL(String(p.redirect_uri));
-    url.searchParams.set('code', makeCode({ cid: p.client_id, ru: String(p.redirect_uri), cc: String(p.code_challenge) }));
+    url.searchParams.set('code', makeCode({ cid: p.client_id, ru: String(p.redirect_uri), cc: String(p.code_challenge), bind }));
     if (p.state) url.searchParams.set('state', String(p.state));
     res.setHeader('cache-control', 'no-store');
     return res.redirect(302, url.toString());
   } catch (e) { return sendError(res, e); }
 }
 
-export function token(req, res) {
+export async function token(req, res) {
   cors(res);
   if (preflight(req, res)) return;
   try {
-    requireEnv('TOKEN_SECRET', 'MCP_KEY');
+    requireEnv('SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'TOKEN_SECRET');
     if (req.method !== 'POST') return json(res, 405, { error: 'invalid_request' });
-    const out = exchange(req.body ?? {});
+    const out = await exchange(req.body ?? {});
     return out.error ? json(res, out.error === 'invalid_client' ? 401 : 400, out) : json(res, 200, out.tokens);
   } catch (e) { return sendError(res, e); }
 }
