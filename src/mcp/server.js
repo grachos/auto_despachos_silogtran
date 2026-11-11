@@ -29,7 +29,10 @@ export async function handleMessage(msg, deps, principal) {
         const result = await callTool(msg.params?.name, msg.params?.arguments ?? {}, deps, principal);
         return ok(msg.id, result);
       } catch (e) {
-        if (e instanceof ApiError && e.code === 'UNKNOWN_TOOL') return err(msg.id, -32602, e.message);
+        if (e instanceof ApiError && e.code === 'UNKNOWN_TOOL') {
+          console.error('[mcp] unknown tool requested:', String(msg.params?.name).replace(/[^\w-]/g, '').slice(0, 40));
+          return err(msg.id, -32602, e.message);
+        }
         console.error('[mcp] call failed:', e?.code || e?.name || 'error');
         return err(msg.id, -32603, 'Error interno del servidor MCP.');
       }

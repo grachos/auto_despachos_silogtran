@@ -145,7 +145,10 @@ export async function callTool(name, args = {}, deps = realDeps, principal = { k
 
 // Known errors keep their Spanish message; anything unexpected becomes a generic one (no internals leak to the client).
 export function errorResult(e) {
-  if (e instanceof ApiError) return fail(e.code, e.message, { ...(e.extra?.faltantes ? { faltantes: e.extra.faltantes } : {}), ...(e.extra?.candidatos ? { candidatos: e.extra.candidatos } : {}) });
+  if (e instanceof ApiError) {
+    console.error('[mcp] tool error:', e.code); // code only: known errors were invisible in the logs
+    return fail(e.code, e.message, { ...(e.extra?.faltantes ? { faltantes: e.extra.faltantes } : {}), ...(e.extra?.candidatos ? { candidatos: e.extra.candidatos } : {}) });
+  }
   console.error('[mcp] tool failed:', e?.code || e?.name || 'error');
   return fail('INTERNAL_ERROR', 'Error interno al hablar con Silogtran; intenta de nuevo en un momento.');
 }
