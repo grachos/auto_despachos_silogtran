@@ -49,6 +49,23 @@ export function parseActivationControls(html) {
   return { buttons, messages };
 }
 
+// Pure: the refusal Silogtran shows when a vehicle cannot be activated (seen 2026-11-11 in `#ctl0_MainModule_mensajeImagenesCargadas`):
+// «¡Error! No se permite Activar el vehículo N sino tiene las siguientes imágenes documentos cargadas: - SOAT - FOTO VEHICULO …», one item per
+// line (<br>). Returns null when the page shows no refusal; otherwise { texto, faltantes[] } (faltantes = the «- item» lines).
+export function parseActivationError(html) {
+  const $ = cheerio.load(String(html));
+  $('br').replaceWith('\n');
+  const candidates = $('[id]').toArray()
+    .filter((el) => /mensaje/i.test(el.attribs.id) && !/^(input|select|textarea|form|script)$/i.test(el.tagName))
+    .map((el) => $(el).text().replace(/ /g, ' '));
+  const raw = candidates.find((t) => /no se permite|^\s*¡?error/i.test(t.trim()));
+  if (!raw) return null;
+  const lines = raw.split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const faltantes = lines.filter((l) => l.startsWith('-')).map((l) => l.replace(/^-\s*/, '').trim()).filter(Boolean).slice(0, 30);
+  const texto = lines.filter((l) => !l.startsWith('-')).join(' ').replace(/^¡?error!?\s*/i, '').slice(0, 300);
+  return { texto, faltantes };
+}
+
 // Searches one plate: autocomplete (exact match on the plate) -> «Buscar Items». Read-only: nothing is ticked or accepted.
 // Returns { form, pick, rows } or throws PLATE_NOT_FOUND / AMBIGUOUS_OPTION. Runs inside client.enqueue().
 export async function searchVehicleItems(client, placa) {
@@ -118,6 +135,11 @@ export async function activateVehicle(client, placa) {
     PRADO_POSTBACK_PARAMETER: 'undefined', [row.checkbox]: 'on',
     [`${P}IDLockHidden_ctl0_MainModule_boton_buscaritem`]: 'true', [`${P}IDLockHidden_ctl0_MainModule_Aceptar`]: 'true',
   });
+  const refusal = parseActivationError(form.html);
+  if (refusal) {
+    const lista = refusal.faltantes.length ? ` Faltan estas imágenes/documentos: ${refusal.faltantes.join(', ')}.` : ` ${refusal.texto}`;
+    throw new ApiError('ACTIVATE_NOT_ALLOWED', `Silogtran no permite activar la placa ${plate}.${lista}`, { status: 422, extra: { faltantes: refusal.faltantes } });
+  }
   const mensajes = parseActivationControls(form.html).messages;
   const status = await plateStatus(client, plate);
   if (status === 'inactive') throw new ApiError('ACTIVATE_NOT_APPLIED', `Silogtran respondió pero la placa ${plate} sigue INACTIVA.`, { status: 422, detail: mensajes.map((m) => m.text).join(' | ').slice(0, 300) || 'sin mensaje' });
