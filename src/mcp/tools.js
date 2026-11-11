@@ -6,7 +6,7 @@ import { withLock } from '../store/locks.js';
 import { assertActorActive, openActorSession, resolveActorId, sessionKey } from '../silogtran/userSession.js';
 import { activateVehicle, activateTrailer } from '../silogtran/activar.js';
 import { searchThirdPartyItems, activateThirdParty } from '../silogtran/terceros.js';
-import { reviewVehicle, activateEntities, reviewText, activationText, ACTIVABLE_ENTES } from '../silogtran/entes.js';
+import { reviewVehicle, activateEntities, chosenEntes, reviewText, activationText, ACTIVABLE_ENTES } from '../silogtran/entes.js';
 import { logActivation } from '../store/activaciones.js';
 import { getUser } from '../store/usuarios.js';
 
@@ -105,6 +105,7 @@ export async function callTool(name, args = {}, deps = realDeps, principal = { k
     let placa = String(args.placa ?? '').toUpperCase();
     try {
       placa = validPlate(args.placa);
+      chosenEntes(args.entes); // fail fast with clear guidance, before opening a Silogtran session
       const r = await deps.withSilogtran(principal, (client) => (deps.activateEntities ?? activateEntities)(client, placa, args.entes, { review: deps.review, activateThirdParty: deps.activateThirdParty, activateTrailer: deps.activateTrailer ?? activateTrailer, activateVehicle: deps.activateVehicle }));
       const { results, notes } = r.out;
       for (const x of results) {

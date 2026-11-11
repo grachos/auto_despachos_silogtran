@@ -114,13 +114,20 @@ export function activationText(placa, results, notes = []) {
 export const ACTIVABLE_ENTES = ['placa', 'trailer', 'conductor', 'propietario', 'poseedor'];
 const KNOWN_REFUSALS = ['ACTIVATE_NOT_ALLOWED', 'VEHICLE_ANNULLED', 'TRAILER_NOT_FOUND', 'THIRD_PARTY_ANNULLED', 'PLATE_NOT_FOUND', 'THIRD_PARTY_NOT_FOUND', 'AMBIGUOUS_OPTION', 'ROW_STATE_UNKNOWN', 'ACTIVATE_NOT_APPLIED', 'ACTIVATE_CHECKBOX_MISSING'];
 
+// Validates the person's choice (array of entes or 'todos') BEFORE touching Silogtran; throws with guidance when it is missing or invalid.
+export function chosenEntes(entes) {
+  const list = Array.isArray(entes) ? entes : [];
+  const chosen = new Set(list.includes('todos') ? ACTIVABLE_ENTES : list);
+  for (const e of chosen) if (!ACTIVABLE_ENTES.includes(e)) throw new ApiError('INVALID_PARAMETER', `Ente no válido: ${String(e).slice(0, 20)}. NO se activó nada. Usa solo: ${ACTIVABLE_ENTES.join(', ')} o todos.`, { status: 400 });
+  if (!chosen.size) throw new ApiError('INVALID_PARAMETER', 'Falta elegir qué activar. NO se activó nada. Llama primero a revisar_vehiculo, muéstrale a la persona el estado de cada ente (placa, trailer, conductor, propietario, poseedor), pregúntale cuáles quiere activar (solo la placa, algunos entes o todos) y, con su respuesta, vuelve a llamar a activar_vehiculo con el campo entes.', { status: 400 });
+  return chosen;
+}
+
 // Activates the chosen entes of a plate. ORDER: terceros (each distinct person ONCE) -> trailer -> plate. Each step is independent (a refusal does not stop the others) but a time budget protects Vercel's 60 s: what does not fit is PENDIENTE.
 // `deps`: { review, activateThirdParty, activateTrailer, activateVehicle }. Returns { results[], notes[], review }.
 export async function activateEntities(client, placa, entes, deps, { budgetMs = 40_000, now = Date.now } = {}) {
   const t0 = now();
-  const chosen = new Set((entes ?? []).includes('todos') ? ACTIVABLE_ENTES : entes);
-  for (const e of chosen) if (!ACTIVABLE_ENTES.includes(e)) throw new ApiError('INVALID_PARAMETER', `Ente no válido: ${String(e).slice(0, 20)}. Usa: ${ACTIVABLE_ENTES.join(', ')} o todos.`, { status: 400 });
-  if (!chosen.size) throw new ApiError('INVALID_PARAMETER', 'Indica qué activar: placa, conductor, propietario, poseedor o todos.', { status: 400 });
+  const chosen = chosenEntes(entes);
   const review = await deps.review(client, placa);
 
   // distinct persons among the chosen third-party roles
