@@ -7,6 +7,7 @@ import * as cheerio from 'cheerio';
 import { PradoPage } from './prado.js';
 import { ApiError } from '../http/errors.js';
 import { cell, norm } from './text.js';
+import { plateStatus } from './placa.js';
 
 const PAGE = 'index.php?page=Maestros.Vehiculo.Activar_111';
 const P = 'ctl0$MainModule$';
@@ -86,3 +87,40 @@ export async function inspectVehicleActivation(client, placa) {
     estadoFiltro: form.fields[`${P}estado_codigo`] ?? null,
   };
 }
+
+// Row state -> what to do. `ANULADO` is rejected on purpose (owner decision pending); anything unknown is rejected too.
+const rowAction = (estado) => {
+  const e = norm(estado);
+  if (e === 'activo') return 'already';
+  if (e === 'inactivo') return 'activate';
+  if (e === 'anulado') return 'annulled';
+  return 'unknown';
+};
+
+// REAL WRITE: activates ONE vehicle. Search (autocomplete + «Buscar Items») -> exactly one row for the plate -> tick ONLY its `activar` checkbox
+// -> «Aceptar» (PRADO postback, as in the browser capture) -> verify with the plate search filtered by INACTIVO (must no longer be found).
+// Never ticks `inactivar`. Runs inside client.enqueue(). Returns { changed, estadoAntes, verified, mensajes }.
+export async function activateVehicle(client, placa) {
+  const plate = String(placa ?? '').trim().toUpperCase();
+  const { form, rows } = await searchVehicleItems(client, plate);
+  const mine = rows.filter((r) => norm(r.placa) === norm(plate));
+  if (!mine.length) throw new ApiError('PLATE_NOT_FOUND', `No encontré la placa ${plate} en el módulo de activación de Silogtran.`, { status: 404 });
+  if (mine.length > 1) throw new ApiError('AMBIGUOUS_OPTION', `Hay varias filas para la placa ${plate}; no se activa nada.`, { status: 409 });
+  const row = mine[0];
+  const action = rowAction(row.estado);
+  if (action === 'already') return { changed: false, estadoAntes: 'ACTIVO', verified: true, mensajes: [] };
+  if (action === 'annulled') throw new ApiError('VEHICLE_ANNULLED', `La placa ${plate} está ANULADA en Silogtran; no se activa.`, { status: 409 });
+  if (action === 'unknown') throw new ApiError('ROW_STATE_UNKNOWN', `No reconozco el estado «${row.estado}» de la placa ${plate}; no se activa nada.`, { status: 409 });
+  if (!row.checkbox) throw new ApiError('ACTIVATE_CHECKBOX_MISSING', 'La fila no trae la casilla «activar»; no se activa nada.', { status: 502 });
+  // The browser submits only ticked checkboxes: drop any «inactivar» control, tick our row only.
+  for (const k of Object.keys(form.fields)) if (/\$inactivar$/.test(k)) delete form.fields[k];
+  await form.postback(`${P}Aceptar`, {
+    PRADO_POSTBACK_PARAMETER: 'undefined', [row.checkbox]: 'on',
+    [`${P}IDLockHidden_ctl0_MainModule_boton_buscaritem`]: 'true', [`${P}IDLockHidden_ctl0_MainModule_Aceptar`]: 'true',
+  });
+  const mensajes = parseActivationControls(form.html).messages;
+  const status = await plateStatus(client, plate);
+  if (status === 'inactive') throw new ApiError('ACTIVATE_NOT_APPLIED', `Silogtran respondió pero la placa ${plate} sigue INACTIVA.`, { status: 422, detail: mensajes.map((m) => m.text).join(' | ').slice(0, 300) || 'sin mensaje' });
+  return { changed: true, estadoAntes: 'INACTIVO', verified: status === 'ok', mensajes };
+}
+

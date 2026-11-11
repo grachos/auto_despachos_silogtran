@@ -1,11 +1,11 @@
-// POST /api/admin/diag-activar { tipo:'vehiculo', valor:<placa>, usuario? } — READ-ONLY. Walks the activation screen up to «Buscar Items» and reports
+// POST /api/admin/diag-activar { tipo:'vehiculo', valor:<placa>, usuario?, ejecutar?, confirmar? } — READ-ONLY unless `ejecutar:true` AND `confirmar` equals the plate (then it REALLY activates that one vehicle). Walks the activation screen up to «Buscar Items» and reports
 // the grid rows and controls. It never ticks a row nor presses «Aceptar» (nothing is activated). Terceros: pending (needs the browser captures).
 import { sendError, ApiError } from '../../http/errors.js';
 import { requireConfig } from '../../config.js';
 import { requireAdmin } from '../../http/admin.js';
 import { withLock } from '../../store/locks.js';
 import { assertActorActive, openActorSession, resolveActorId, sessionKey } from '../../silogtran/userSession.js';
-import { inspectVehicleActivation } from '../../silogtran/activar.js';
+import { inspectVehicleActivation, activateVehicle } from '../../silogtran/activar.js';
 
 export default async function handler(req, res) {
   res.setHeader('cache-control', 'no-store');
@@ -23,6 +23,11 @@ export default async function handler(req, res) {
     await assertActorActive(userId);
     const out = await withLock(sessionKey(userId), async () => {
       const { client } = await openActorSession(userId);
+      if (req.body?.ejecutar === true) {
+        if (String(req.body?.confirmar ?? '').trim().toUpperCase() !== valor) throw new ApiError('CONFIRMATION_MISMATCH', 'Para activar de verdad, `confirmar` debe ser igual a la placa.', { status: 400 });
+        const done = await client.enqueue(() => activateVehicle(client, valor));
+        return { ok: true, placa: valor, ...done };
+      }
       return client.enqueue(() => inspectVehicleActivation(client, valor));
     });
     res.status(200).json(out);
