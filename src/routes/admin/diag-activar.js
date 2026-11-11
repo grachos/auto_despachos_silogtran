@@ -7,6 +7,7 @@ import { withLock } from '../../store/locks.js';
 import { assertActorActive, openActorSession, resolveActorId, sessionKey } from '../../silogtran/userSession.js';
 import { inspectVehicleActivation, activateVehicle } from '../../silogtran/activar.js';
 import { inspectThirdPartyActivation, activateThirdParty } from '../../silogtran/terceros.js';
+import { reviewVehicle } from '../../silogtran/entes.js';
 
 export default async function handler(req, res) {
   res.setHeader('cache-control', 'no-store');
@@ -18,12 +19,13 @@ export default async function handler(req, res) {
     requireAdmin(req);
     requireConfig();
     const tipo = String(req.body?.tipo ?? 'vehiculo');
-    if (!['vehiculo', 'tercero'].includes(tipo)) throw new ApiError('INVALID_PARAMETER', 'Tipo: "vehiculo" o "tercero".', { status: 400 });
+    if (!['vehiculo', 'tercero', 'entes'].includes(tipo)) throw new ApiError('INVALID_PARAMETER', 'Tipo: "vehiculo", "tercero" o "entes".', { status: 400 });
     const valor = String(req.body?.valor ?? '').trim().toUpperCase();
     const userId = await resolveActorId(req.body?.usuario);
     await assertActorActive(userId);
     const out = await withLock(sessionKey(userId), async () => {
       const { client } = await openActorSession(userId);
+      if (tipo === 'entes') return { ok: true, ...(await client.enqueue(() => reviewVehicle(client, valor))) }; // read-only review of vehicle + trailer + conductor/propietario/poseedor
       const write = req.body?.ejecutar === true;
       if (write && String(req.body?.confirmar ?? '').trim().toUpperCase() !== valor) throw new ApiError('CONFIRMATION_MISMATCH', 'Para activar de verdad, `confirmar` debe ser igual a `valor` (placa o documento).', { status: 400 });
       if (tipo === 'tercero') {

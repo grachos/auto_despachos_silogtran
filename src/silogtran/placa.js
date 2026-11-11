@@ -19,7 +19,7 @@ export function plateSearchVerdict(url, html) {
 }
 
 // One search of the vehicle master; `estado` (19 ACTIVO, 20 INACTIVO, 21 ANULADO) is the search screen's state filter (optional).
-async function searchPlate(client, plate, estado = null) {
+async function searchPlateRaw(client, plate, estado = null) {
   const page = await client.request(BUSCAR);
   const { form, data } = formFields(page.text);
   const field = `${P}vehiculo_placa`;
@@ -28,7 +28,20 @@ async function searchPlate(client, plate, estado = null) {
     method: 'POST',
     form: { ...data, [field]: plate, ...(estado != null ? { [`${P}estado_codigo`]: String(estado) } : {}), PRADO_POSTBACK_TARGET: `${P}ctl3`, PRADO_POSTBACK_PARAMETER: 'undefined', [`${P}IDLockHidden_ctl0_MainModule_ctl3`]: 'true' },
   });
-  return plateSearchVerdict(res.url, res.text);
+  return res;
+}
+async function searchPlate(client, plate, estado = null) {
+  const res = await searchPlateRaw(client, plate, estado);
+  return res ? plateSearchVerdict(res.url, res.text) : null;
+}
+
+// The vehicle sheet HTML (the search redirects to it when the plate exists), or null (not found / unknown). Read-only.
+export async function fetchVehicleSheet(client, placa) {
+  const plate = validPlate(placa);
+  if (!plate) return null;
+  const res = await searchPlateRaw(client, plate);
+  if (!res) return null;
+  return plateSearchVerdict(res.url, res.text) === true ? res : null;
 }
 
 const validPlate = (placa) => {
