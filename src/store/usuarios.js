@@ -30,17 +30,21 @@ export async function findUserByRef(ref) {
 
 export const getUser = async (id) => eff(await run(supabase().from('app_users').select('id, nombre, silog_user, status, relink_required').eq('id', id).maybeSingle()));
 
-export async function createInvitation(userId, tokenHash) {
+// One link per purpose. 'despachar' is reserved for the dispatch MCP (M6) and cannot be issued yet.
+export const INVITE_SCOPES = ['whatsapp', 'activar'];
+export const SCOPE_PAGE = { whatsapp: '/vincular', activar: '/mcp', despachar: '/mcp' };
+
+export async function createInvitation(userId, tokenHash, scope = 'whatsapp') {
   const nowIso = new Date().toISOString();
-  // Re-inviting revokes any earlier unused link of the same user.
-  await run(supabase().from('invitaciones').update({ expires_at: nowIso }).eq('user_id', userId).is('used_at', null).gt('expires_at', nowIso));
+  // Re-inviting revokes earlier unused links of the same user AND the same purpose (the other purposes' links stay valid).
+  await run(supabase().from('invitaciones').update({ expires_at: nowIso }).eq('user_id', userId).eq('scope', scope).is('used_at', null).gt('expires_at', nowIso));
   const expiresAt = new Date(Date.now() + INVITATION_TTL_MS).toISOString();
-  await run(supabase().from('invitaciones').insert({ user_id: userId, token_hash: tokenHash, expires_at: expiresAt }));
+  await run(supabase().from('invitaciones').insert({ user_id: userId, token_hash: tokenHash, expires_at: expiresAt, scope }));
   return expiresAt;
 }
 
 export const findInvitationByHash = async (hash) =>
-  (await run(supabase().from('invitaciones').select('id, user_id, expires_at, used_at, attempts').eq('token_hash', hash).maybeSingle()));
+  (await run(supabase().from('invitaciones').select('id, user_id, expires_at, used_at, attempts, scope').eq('token_hash', hash).maybeSingle()));
 
 // Atomic compare-and-set: succeeds only if attempts is still `n`, the link is unused, unexpired and below the limit.
 export async function reserveAttempt(hash, n) {

@@ -180,12 +180,12 @@ $('rndc').addEventListener('click', async () => {
 // ---- invitaciones ----
 $('invForm').addEventListener('submit', async (e) => {
   e.preventDefault(); hideMsg($('invMsg')); $('invResult').classList.add('hidden'); $('invGo').disabled = true;
-  const payload = $('i').value.trim() ? { userId: $('i').value.trim() } : { nombre: $('n').value.trim() };
+  const payload = { ...($('i').value.trim() ? { userId: $('i').value.trim() } : { nombre: $('n').value.trim() }), scope: $('sc').value };
   try {
     const { status, body } = await api('/api/admin/invitaciones', { method: 'POST', body: JSON.stringify(payload) });
     if (!(await guard({ status, body }))) return;
     if (status !== 200 || !body.ok) { showMsg($('invMsg'), 'err', (body.message || 'No se pudo generar el link.') + (body.code ? ` (${body.code})` : '')); return; }
-    $('who').textContent = `Usuario: ${body.usuario.nombre} (ID ${body.usuario.id})`;
+    $('who').textContent = `Usuario: ${body.usuario.nombre} (ID ${body.usuario.id}) · link de ${body.invitacion.tipo === 'activar' ? 'ACTIVACIONES' : 'WHATSAPP'}`;
     $('link').value = body.invitacion.link;
     $('exp').textContent = `Vence: ${when(body.invitacion.expiraEn)}`;
     $('invResult').classList.remove('hidden');
@@ -213,21 +213,21 @@ async function loadMcp() {
   if (res.status !== 200) { showMsg($('mcpMsg'), 'err', res.body.message || 'No se pudo cargar.'); return; }
   hideMsg($('mcpMsg'));
   const toggle = (u) => {
-    const on = u.alcances.includes('activar');
-    const b = el('button', on ? 'Quitar' : 'Habilitar', on ? 'btn small' : 'btn small primary');
+    if (!u.alcances.includes('activar')) return document.createTextNode('');
+    const b = el('button', 'Quitar', 'btn small');
     b.type = 'button';
     b.addEventListener('click', async () => {
-      if (on && !confirm(`¿Quitar el acceso de ${u.nombre}? Sus conexiones dejan de funcionar.`)) return;
+      if (!confirm(`¿Quitar el acceso de ${u.nombre}? Sus conexiones dejan de funcionar.`)) return;
       b.disabled = true;
-      const r = await api('/api/admin/mcp-permiso', { method: 'POST', body: JSON.stringify({ userId: u.id, scope: 'activar', enabled: !on }) });
-      if (r.status !== 200) showMsg($('mcpMsg'), 'err', r.body.message || 'No se pudo cambiar el permiso.');
+      const r = await api('/api/admin/mcp-permiso', { method: 'POST', body: JSON.stringify({ userId: u.id, scope: 'activar', enabled: false }) });
+      if (r.status !== 200) showMsg($('mcpMsg'), 'err', r.body.message || 'No se pudo quitar el acceso.');
       loadMcp();
     });
     return b;
   };
   renderTable($('mcpUsers'), [
     { h: 'Persona', v: (u) => u.nombre }, { h: 'Usuario Silogtran', v: (u) => dash(u.usuarioSilogtran) },
-    { h: 'Estado', v: (u) => u.estado }, { h: 'Activar vehículos', v: (u) => (u.alcances.includes('activar') ? badge('Habilitado', 'ok') : badge('No', 'mute')) },
+    { h: 'Estado', v: (u) => u.estado }, { h: 'Activaciones', v: (u) => (u.alcances.includes('activar') ? badge('Habilitado', 'ok') : badge('No', 'mute')) },
     { h: '', v: toggle },
   ], res.body.usuarios, 'Sin usuarios.');
   renderTable($('mcpConns'), [

@@ -14,7 +14,7 @@ const wrap = (method, fn) => async (req, res) => {
       return res.status(405).json({ ok: false, code: 'METHOD_NOT_ALLOWED', message: `Use ${method}.` });
     }
     requireEnv('SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'TOKEN_SECRET');
-    const user = await requireSession(req);
+    const user = await requireSession(req, 'activar');
     res.status(200).json({ ok: true, ...(await fn(req, user)) });
   } catch (e) {
     sendError(res, e);

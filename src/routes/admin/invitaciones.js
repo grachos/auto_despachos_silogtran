@@ -1,9 +1,9 @@
-// POST /api/admin/invitaciones { nombre } | { userId } — creates an app user (or re-invites one) and returns a
+// POST /api/admin/invitaciones { nombre | userId, scope? ('whatsapp' default | 'activar') } — creates an app user (or re-invites one) and returns a
 // single-use link that expires in 2 hours. Admin only (ADMIN_KEY header or admin cookie). The raw token is shown once.
 import { requireAdmin } from '../../http/admin.js';
 import { ApiError, sendError } from '../../http/errors.js';
 import { requireEnv } from '../../config.js';
-import { createUser, findUserByRef, createInvitation } from '../../store/usuarios.js';
+import { createUser, findUserByRef, createInvitation, INVITE_SCOPES } from '../../store/usuarios.js';
 import { hashToken, newRawToken } from '../../invitaciones.js';
 
 export default async function handler(req, res) {
@@ -14,8 +14,10 @@ export default async function handler(req, res) {
     }
     requireAdmin(req);
     requireEnv('SUPABASE_URL', 'SUPABASE_SERVICE_KEY');
-    const { nombre, userId } = req.body && typeof req.body === 'object' ? req.body : {};
+    const { nombre, userId, scope: rawScope } = req.body && typeof req.body === 'object' ? req.body : {};
 
+    const scope = String(rawScope ?? 'whatsapp');
+    if (!INVITE_SCOPES.includes(scope)) throw new ApiError('INVALID_PARAMETER', `Tipo de link inválido; usa: ${INVITE_SCOPES.join(', ')}.`, { status: 400 });
     let user;
     if (userId) {
       user = await findUserByRef(userId);
@@ -27,12 +29,12 @@ export default async function handler(req, res) {
     }
 
     const raw = newRawToken();
-    const expiresAt = await createInvitation(user.id, hashToken(raw));
+    const expiresAt = await createInvitation(user.id, hashToken(raw), scope);
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     res.status(200).json({
       ok: true,
       usuario: { id: user.id, nombre: user.nombre },
-      invitacion: { link: `https://${host}/invitacion?t=${raw}`, token: raw, expiraEn: expiresAt, horasDeVigencia: 2 },
+      invitacion: { tipo: scope, link: `https://${host}/invitacion?t=${raw}`, token: raw, expiraEn: expiresAt, horasDeVigencia: 2 },
     });
   } catch (e) {
     sendError(res, e);

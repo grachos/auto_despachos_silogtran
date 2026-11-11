@@ -58,6 +58,12 @@
   <section id="tab-invitaciones" class="hidden">
     <form id="invForm" class="card" autocomplete="off">
       <p class="muted">Crea un usuario y genera su link de acceso (un solo uso, vence a las 2 horas).</p>
+      <label for="sc">Para qué es el link</label>
+      <select id="sc">
+        <option value="whatsapp">WhatsApp (vincular el teléfono y despachar por el chat)</option>
+        <option value="activar">Activaciones (vehículos y proveedores, por IA/MCP)</option>
+      </select>
+      <p class="muted">Cada link es independiente: sirve solo para su propósito. Una persona puede tener uno de cada uno.</p>
       <label for="n">Nombre del usuario nuevo</label>
       <input id="n" type="text" maxlength="80" placeholder="Ej.: Ana Pérez">
       <label for="i">…o un usuario existente: su ID o su usuario de Silogtran (para generar un link nuevo)</label>
@@ -74,7 +80,7 @@
     </div>
   </section>
   <section id="tab-mcp" class="hidden">
-    <p class="muted">Habilita el acceso MCP por persona. Cada una genera su ticket en <b>/mcp</b> y las activaciones quedan a su nombre en Silogtran. Quitar el permiso corta sus conexiones al instante.</p>
+    <p class="muted">El acceso MCP se concede con un <b>link de activaciones</b> (pestaña Invitaciones → «Activaciones»): al entrar con él la persona queda habilitada y genera su ticket en <b>/mcp</b>; las activaciones quedan a su nombre en Silogtran. Aquí puedes quitar el acceso: corta sus conexiones al instante.</p>
     <div id="mcpMsg" class="msg hidden" role="status"></div>
     <h2>Permisos</h2>
     <div class="scroll"><table id="mcpUsers"></table></div>

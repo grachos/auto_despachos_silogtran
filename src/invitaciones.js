@@ -7,6 +7,7 @@ import { MAX_ATTEMPTS } from './store/usuarios.js';
 import * as realStore from './store/usuarios.js';
 import { Silogtran } from './silogtran/client.js';
 import { loadCookies, saveCookies } from './store/sessionStore.js';
+import { setScope } from './store/mcp.js';
 
 export const hashToken = (raw) => createHash('sha256').update(String(raw)).digest('hex');
 export const newRawToken = () => randomBytes(32).toString('base64url');
@@ -37,6 +38,14 @@ function clean(v, label) {
   return s;
 }
 
+// Read-only look at a link: what it is for and whether it can still be used (no attempt is spent).
+export async function peekInvitation(rawToken, deps = {}) {
+  const inv = await (deps.store ?? realStore).findInvitationByHash(hashToken(rawToken));
+  const bad = state(inv);
+  if (bad) throw bad;
+  return { scope: inv.scope ?? 'whatsapp' };
+}
+
 export async function loginWithInvitation(rawToken, body, deps = {}) {
   const store = deps.store ?? realStore;
   const silogLogin = deps.silogLogin ?? realSilogLogin;
@@ -47,6 +56,12 @@ export async function loginWithInvitation(rawToken, body, deps = {}) {
   const inv = await store.findInvitationByHash(hash);
   const bad = state(inv);
   if (bad) throw bad;
+
+  // A link for a person that already has a Silogtran user must be answered with THAT user (links never re-bind a person to someone else).
+  const existing = await store.getUser(inv.user_id);
+  if (existing?.silog_user && existing.silog_user.toLowerCase() !== usuario.toLowerCase()) {
+    throw new ApiError('SILOG_USER_MISMATCH', 'Este link es de otra persona: el usuario de Silogtran no coincide con el registrado.', { status: 409 });
+  }
 
   if (!(await store.reserveAttempt(hash, inv.attempts))) {
     // Lost a race (or the link changed state between read and write).
@@ -80,8 +95,11 @@ export async function loginWithInvitation(rawToken, body, deps = {}) {
   }
   if (!(await store.consumeInvitation(hash))) throw new ApiError('INVITATION_USED', 'Este link ya fue utilizado.', { status: 410 });
 
+  const scope = inv.scope ?? 'whatsapp';
   await store.activateUser(inv.user_id, usuario, clave);
+  // The link itself is the administrator's authorization for its purpose (activation links grant the MCP scope).
+  if (scope !== 'whatsapp') await (deps.grantScope ?? setScope)(inv.user_id, scope, true);
   await (deps.saveJar ?? saveCookies)(session.jar, inv.user_id);
   const user = await store.getUser(inv.user_id);
-  return { user: { id: user.id, nombre: user.nombre, silogUser: user.silog_user }, costCenter: session.costCenter };
+  return { user: { id: user.id, nombre: user.nombre, silogUser: user.silog_user }, costCenter: session.costCenter, scope };
 }
