@@ -66,18 +66,21 @@ export function parseActivationError(html) {
   return { texto, faltantes };
 }
 
+// The two "plate" activation screens share the flow and the grid (`ItemsVehiculo`, even on the trailer screen); only page and field differ.
+const VEHICLE = { page: PAGE, field: `${P}vehiculo_codigo`, attr: 'ctl0_mainmodule_vehiculo_codigo', label: 'placa', notFound: 'PLATE_NOT_FOUND' };
+const TRAILER = { page: 'index.php?page=Maestros.Trailer.Activar_111', field: `${P}trailer_codigo`, attr: 'ctl0_mainmodule_trailer_codigo', label: 'trailer', notFound: 'TRAILER_NOT_FOUND' };
+
 // Searches one plate: autocomplete (exact match on the plate) -> «Buscar Items». Read-only: nothing is ticked or accepted.
-// Returns { form, pick, rows } or throws PLATE_NOT_FOUND / AMBIGUOUS_OPTION. Runs inside client.enqueue().
-export async function searchVehicleItems(client, placa) {
+// Returns { form, pick, rows } or throws <notFound> / AMBIGUOUS_OPTION. Runs inside client.enqueue().
+async function searchItems(client, placa, cfg) {
   const plate = String(placa ?? '').trim().toUpperCase();
   if (!/^[A-Z0-9]{4,10}$/.test(plate)) throw new ApiError('INVALID_PARAMETER', 'Placa inválida.', { status: 400 });
-  const form = new PradoPage(client, await client.request(PAGE));
-  if (!(`${P}vehiculo_codigo` in form.fields)) throw new ApiError('FORM_FIELD_MISSING', 'La pantalla de activación de vehículos no tiene el campo de placa.', { status: 502 });
-  const suggestions = await form.suggest(`${P}vehiculo_codigo`, plate);
-  const attr = 'ctl0_mainmodule_vehiculo_codigo'; // attribute names are the lowercase control ids
-  const exact = suggestions.filter((s) => norm(s.attrs[attr] ?? s.cells[0] ?? '') === norm(plate));
-  if (!exact.length) throw new ApiError('PLATE_NOT_FOUND', `No encontré la placa ${plate} en el módulo de activación de Silogtran.`, { status: 404 });
-  if (exact.length > 1) throw new ApiError('AMBIGUOUS_OPTION', `Hay varias coincidencias para la placa ${plate}; no se activa nada.`, { status: 409 });
+  const form = new PradoPage(client, await client.request(cfg.page));
+  if (!(cfg.field in form.fields)) throw new ApiError('FORM_FIELD_MISSING', `La pantalla de activación de ${cfg.label === 'trailer' ? 'trailers' : 'vehículos'} no tiene el campo de placa.`, { status: 502 });
+  const suggestions = await form.suggest(cfg.field, plate);
+  const exact = suggestions.filter((s) => norm(s.attrs[cfg.attr] ?? s.cells[0] ?? '') === norm(plate)); // attribute names are the lowercase control ids
+  if (!exact.length) throw new ApiError(cfg.notFound, `No encontré ${cfg.label === 'trailer' ? 'el trailer' : 'la placa'} ${plate} en el módulo de activación de Silogtran.`, { status: 404 });
+  if (exact.length > 1) throw new ApiError('AMBIGUOUS_OPTION', `Hay varias coincidencias para ${plate}; no se activa nada.`, { status: 409 });
   const pick = exact[0];
   form.select(pick);
   // Same as the browser capture: plain submit with the button's name=value and the button locks on.
@@ -87,14 +90,16 @@ export async function searchVehicleItems(client, placa) {
   });
   return { form, pick, rows: parseActivationGrid(form.html) };
 }
+export const searchVehicleItems = (client, placa) => searchItems(client, placa, VEHICLE);
+export const searchTrailerItems = (client, placa) => searchItems(client, placa, TRAILER);
 
 // READ-ONLY diagnostic of the activation screen for a plate: what the autocomplete returned, the grid rows and the controls. Never ticks nor accepts.
-export async function inspectVehicleActivation(client, placa) {
-  const { form, pick, rows } = await searchVehicleItems(client, placa);
+async function inspectItems(client, placa, cfg) {
+  const { form, pick, rows } = await searchItems(client, placa, cfg);
   const controls = parseActivationControls(form.html);
   return {
     ok: true,
-    sugerencia: { atributos: Object.keys(pick.attrs), id: pick.attrs.ctl0_mainmodule_vehiculo_codigo_idhidden ?? null },
+    sugerencia: { atributos: Object.keys(pick.attrs), id: pick.attrs[`${cfg.attr}_idhidden`] ?? null },
     // person names are reported only as filled/empty, like the other diagnostics
     filas: rows.map((r) => ({
       ctl: r.ctl, item: r.item, placa: r.placa, estado: r.estado, casilla: r.checkbox, marcada: r.checked, campos: r.fields,
@@ -104,6 +109,8 @@ export async function inspectVehicleActivation(client, placa) {
     estadoFiltro: form.fields[`${P}estado_codigo`] ?? null,
   };
 }
+export const inspectVehicleActivation = (client, placa) => inspectItems(client, placa, VEHICLE);
+export const inspectTrailerActivation = (client, placa) => inspectItems(client, placa, TRAILER);
 
 // Row state -> what to do. `ANULADO` is rejected on purpose (owner decision pending); anything unknown is rejected too.
 const rowAction = (estado) => {
@@ -114,20 +121,22 @@ const rowAction = (estado) => {
   return 'unknown';
 };
 
-// REAL WRITE: activates ONE vehicle. Search (autocomplete + «Buscar Items») -> exactly one row for the plate -> tick ONLY its `activar` checkbox
-// -> «Aceptar» (PRADO postback, as in the browser capture) -> verify with the plate search filtered by INACTIVO (must no longer be found).
-// Never ticks `inactivar`. Runs inside client.enqueue(). Returns { changed, estadoAntes, verified, mensajes }.
-export async function activateVehicle(client, placa) {
+// REAL WRITE: activates ONE vehicle / trailer. Search (autocomplete + «Buscar Items») -> exactly one row for the plate -> tick ONLY its `activar`
+// checkbox -> «Aceptar» (PRADO postback, as in the browser capture) -> verify (vehicle: the plate search filtered by INACTIVO must no longer find it;
+// trailer: search again, state must be ACTIVO). Never ticks `inactivar`. Runs inside client.enqueue(). Returns { changed, estadoAntes, verified, mensajes }.
+async function activateItem(client, placa, cfg, verify) {
   const plate = String(placa ?? '').trim().toUpperCase();
-  const { form, rows } = await searchVehicleItems(client, plate);
+  const isTrailer = cfg.label === 'trailer';
+  const what = isTrailer ? `el trailer ${plate}` : `la placa ${plate}`;
+  const { form, rows } = await searchItems(client, plate, cfg);
   const mine = rows.filter((r) => norm(r.placa) === norm(plate));
-  if (!mine.length) throw new ApiError('PLATE_NOT_FOUND', `No encontré la placa ${plate} en el módulo de activación de Silogtran.`, { status: 404 });
-  if (mine.length > 1) throw new ApiError('AMBIGUOUS_OPTION', `Hay varias filas para la placa ${plate}; no se activa nada.`, { status: 409 });
+  if (!mine.length) throw new ApiError(cfg.notFound, `No encontré ${what} en el módulo de activación de Silogtran.`, { status: 404 });
+  if (mine.length > 1) throw new ApiError('AMBIGUOUS_OPTION', `Hay varias filas para ${what}; no se activa nada.`, { status: 409 });
   const row = mine[0];
   const action = rowAction(row.estado);
   if (action === 'already') return { changed: false, estadoAntes: 'ACTIVO', verified: true, mensajes: [] };
-  if (action === 'annulled') throw new ApiError('VEHICLE_ANNULLED', `La placa ${plate} está ANULADA en Silogtran; no se activa.`, { status: 409 });
-  if (action === 'unknown') throw new ApiError('ROW_STATE_UNKNOWN', `No reconozco el estado «${row.estado}» de la placa ${plate}; no se activa nada.`, { status: 409 });
+  if (action === 'annulled') throw new ApiError('VEHICLE_ANNULLED', `${isTrailer ? 'El trailer' : 'La placa'} ${plate} está ANULAD${isTrailer ? 'O' : 'A'} en Silogtran; no se activa.`, { status: 409 });
+  if (action === 'unknown') throw new ApiError('ROW_STATE_UNKNOWN', `No reconozco el estado «${row.estado}» de ${what}; no se activa nada.`, { status: 409 });
   if (!row.checkbox) throw new ApiError('ACTIVATE_CHECKBOX_MISSING', 'La fila no trae la casilla «activar»; no se activa nada.', { status: 502 });
   // The browser submits only ticked checkboxes: drop any «inactivar» control, tick our row only.
   for (const k of Object.keys(form.fields)) if (/\$inactivar$/.test(k)) delete form.fields[k];
@@ -138,11 +147,15 @@ export async function activateVehicle(client, placa) {
   const refusal = parseActivationError(form.html);
   if (refusal) {
     const lista = refusal.faltantes.length ? ` Faltan estas imágenes/documentos: ${refusal.faltantes.join(', ')}.` : ` ${refusal.texto}`;
-    throw new ApiError('ACTIVATE_NOT_ALLOWED', `Silogtran no permite activar la placa ${plate}.${lista}`, { status: 422, extra: { faltantes: refusal.faltantes } });
+    throw new ApiError('ACTIVATE_NOT_ALLOWED', `Silogtran no permite activar ${what}.${lista}`, { status: 422, extra: { faltantes: refusal.faltantes } });
   }
   const mensajes = parseActivationControls(form.html).messages;
-  const status = await plateStatus(client, plate);
-  if (status === 'inactive') throw new ApiError('ACTIVATE_NOT_APPLIED', `Silogtran respondió pero la placa ${plate} sigue INACTIVA.`, { status: 422, detail: mensajes.map((m) => m.text).join(' | ').slice(0, 300) || 'sin mensaje' });
+  const status = await verify(client, plate);
+  if (status === 'inactive') throw new ApiError('ACTIVATE_NOT_APPLIED', `Silogtran respondió pero ${what} sigue INACTIV${isTrailer ? 'O' : 'A'}.`, { status: 422, detail: mensajes.map((m) => m.text).join(' | ').slice(0, 300) || 'sin mensaje' });
   return { changed: true, estadoAntes: 'INACTIVO', verified: status === 'ok', mensajes };
 }
-
+export const activateVehicle = (client, placa) => activateItem(client, placa, VEHICLE, plateStatus);
+export const activateTrailer = (client, placa) => activateItem(client, placa, TRAILER, async (c, plate) => {
+  const after = (await searchItems(c, plate, TRAILER)).rows.find((r) => norm(r.placa) === norm(plate));
+  return after ? (norm(after.estado) === 'activo' ? 'ok' : 'inactive') : null;
+});

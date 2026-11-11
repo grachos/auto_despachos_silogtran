@@ -5,7 +5,7 @@ import { requireConfig } from '../../config.js';
 import { requireAdmin } from '../../http/admin.js';
 import { withLock } from '../../store/locks.js';
 import { assertActorActive, openActorSession, resolveActorId, sessionKey } from '../../silogtran/userSession.js';
-import { inspectVehicleActivation, activateVehicle } from '../../silogtran/activar.js';
+import { inspectVehicleActivation, activateVehicle, inspectTrailerActivation, activateTrailer } from '../../silogtran/activar.js';
 import { inspectThirdPartyActivation, activateThirdParty } from '../../silogtran/terceros.js';
 import { reviewVehicle } from '../../silogtran/entes.js';
 
@@ -19,7 +19,7 @@ export default async function handler(req, res) {
     requireAdmin(req);
     requireConfig();
     const tipo = String(req.body?.tipo ?? 'vehiculo');
-    if (!['vehiculo', 'tercero', 'entes'].includes(tipo)) throw new ApiError('INVALID_PARAMETER', 'Tipo: "vehiculo", "tercero" o "entes".', { status: 400 });
+    if (!['vehiculo', 'trailer', 'tercero', 'entes'].includes(tipo)) throw new ApiError('INVALID_PARAMETER', 'Tipo: "vehiculo", "trailer", "tercero" o "entes".', { status: 400 });
     const valor = String(req.body?.valor ?? '').trim().toUpperCase();
     const userId = await resolveActorId(req.body?.usuario);
     await assertActorActive(userId);
@@ -32,6 +32,10 @@ export default async function handler(req, res) {
         const ref = { documento: valor, id: req.body?.id ?? null };
         if (write) return { ok: true, documento: valor, ...(await client.enqueue(() => activateThirdParty(client, ref))) };
         return client.enqueue(() => inspectThirdPartyActivation(client, ref));
+      }
+      if (tipo === 'trailer') {
+        if (write) return { ok: true, trailer: valor, ...(await client.enqueue(() => activateTrailer(client, valor))) };
+        return client.enqueue(() => inspectTrailerActivation(client, valor));
       }
       if (write) return { ok: true, placa: valor, ...(await client.enqueue(() => activateVehicle(client, valor))) };
       return client.enqueue(() => inspectVehicleActivation(client, valor));

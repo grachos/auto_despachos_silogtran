@@ -4,7 +4,7 @@
 import { ApiError } from '../http/errors.js';
 import { withLock } from '../store/locks.js';
 import { assertActorActive, openActorSession, resolveActorId, sessionKey } from '../silogtran/userSession.js';
-import { activateVehicle } from '../silogtran/activar.js';
+import { activateVehicle, activateTrailer } from '../silogtran/activar.js';
 import { searchThirdPartyItems, activateThirdParty } from '../silogtran/terceros.js';
 import { reviewVehicle, activateEntities, reviewText, activationText, ACTIVABLE_ENTES } from '../silogtran/entes.js';
 import { logActivation } from '../store/activaciones.js';
@@ -24,7 +24,7 @@ export const TOOLS = [
   },
   {
     name: 'activar_vehiculo',
-    description: `ACTIVA en Silogtran SOLO los entes que la persona eligió de una placa: ${ACTIVABLE_ENTES.join(', ')} o todos. Antes debes haber llamado a revisar_vehiculo, mostrado el estado y preguntado a la persona cuáles activar (nunca elijas por ella). Orden: terceros (una sola vez por persona aunque tenga varios roles), luego la placa. Los que ya están activos no se tocan. Si Silogtran exige imágenes/documentos que faltan, ese ente no se activa y se listan los faltantes. El trailer aún no se puede activar por aquí.`,
+    description: `ACTIVA en Silogtran SOLO los entes que la persona eligió de una placa: ${ACTIVABLE_ENTES.join(', ')} o todos. Antes debes haber llamado a revisar_vehiculo, mostrado el estado y preguntado a la persona cuáles activar (nunca elijas por ella). Orden: terceros (una sola vez por persona aunque tenga varios roles), luego el trailer y al final la placa. Los que ya están activos no se tocan. Si Silogtran exige imágenes/documentos que faltan, ese ente no se activa y se listan los faltantes.`,
     inputSchema: {
       type: 'object',
       properties: { placa: PLACA, entes: { type: 'array', description: 'Qué activar, según lo que eligió la persona.', items: { type: 'string', enum: [...ACTIVABLE_ENTES, 'todos'] }, minItems: 1, maxItems: 5 } },
@@ -80,7 +80,7 @@ const validDoc = (v) => {
   return d;
 };
 
-const realDeps = { withSilogtran, logActivation, review: reviewVehicle, activateEntities, activateVehicle, activateThirdParty, searchThirdPartyItems };
+const realDeps = { withSilogtran, logActivation, review: reviewVehicle, activateEntities, activateVehicle, activateTrailer, activateThirdParty, searchThirdPartyItems };
 const REFUSED = ['ACTIVATE_NOT_ALLOWED', 'VEHICLE_ANNULLED', 'THIRD_PARTY_ANNULLED', 'PLATE_NOT_FOUND', 'THIRD_PARTY_NOT_FOUND', 'AMBIGUOUS_OPTION', 'ROW_STATE_UNKNOWN', 'INVALID_PARAMETER'];
 
 export async function callTool(name, args = {}, deps = realDeps, principal = { kind: 'admin' }) {
@@ -105,10 +105,10 @@ export async function callTool(name, args = {}, deps = realDeps, principal = { k
     let placa = String(args.placa ?? '').toUpperCase();
     try {
       placa = validPlate(args.placa);
-      const r = await deps.withSilogtran(principal, (client) => (deps.activateEntities ?? activateEntities)(client, placa, args.entes, { review: deps.review, activateThirdParty: deps.activateThirdParty, activateVehicle: deps.activateVehicle }));
+      const r = await deps.withSilogtran(principal, (client) => (deps.activateEntities ?? activateEntities)(client, placa, args.entes, { review: deps.review, activateThirdParty: deps.activateThirdParty, activateTrailer: deps.activateTrailer ?? activateTrailer, activateVehicle: deps.activateVehicle }));
       const { results, notes } = r.out;
       for (const x of results) {
-        await audit({ tipo: x.etiqueta === 'Placa' ? 'vehiculo' : 'tercero', referencia: x.etiqueta === 'Placa' ? placa : `${placa}:${x.etiqueta}`, actor: r.actor,
+        await audit({ tipo: { Placa: 'vehiculo', Trailer: 'trailer' }[x.etiqueta] ?? 'tercero', referencia: x.etiqueta === 'Placa' ? placa : `${placa}:${x.etiqueta}`, actor: r.actor,
           resultado: { ACTIVADO: 'ACTIVATED', YA_ACTIVO: 'ALREADY_ACTIVE', RECHAZADO: 'REFUSED', PENDIENTE: 'PENDING' }[x.resultado] ?? 'ERROR', error_code: x.codigo, detalle: x.detalle });
       }
       const failed = results.some((x) => x.resultado === 'ERROR');
