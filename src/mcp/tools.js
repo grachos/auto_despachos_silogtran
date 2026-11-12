@@ -4,7 +4,7 @@
 import { ApiError } from '../http/errors.js';
 import { withLock } from '../store/locks.js';
 import { assertActorActive, openActorSession, resolveActorId, sessionKey } from '../silogtran/userSession.js';
-import { activateVehicle, activateTrailer } from '../silogtran/activar.js';
+import { activateVehicle, activateTrailer, searchTrailerItems } from '../silogtran/activar.js';
 import { searchThirdPartyItems, activateThirdParty } from '../silogtran/terceros.js';
 import { reviewVehicle, activateEntities, chosenEntes, reviewText, activationText, ACTIVABLE_ENTES } from '../silogtran/entes.js';
 import { logActivation } from '../store/activaciones.js';
@@ -24,7 +24,7 @@ export const TOOLS = [
   },
   {
     name: 'activar_vehiculo',
-    description: `ACTIVA en Silogtran lo que la persona pidió de una placa. Sin \`entes\`, activa SOLO la placa (el vehículo). Con \`entes\` activa exactamente esos, uno o varios: ${ACTIVABLE_ENTES.join(', ')} o todos (ej.: ["conductor"] para activar solo el conductor; ["trailer","poseedor"]; ["todos"]). Si la persona pidió «la placa y sus entes» o no está claro qué quiere, llama antes a revisar_vehiculo, muéstrale el estado de cada ente y pregúntale. Orden: terceros (una sola vez por persona aunque tenga varios roles), luego el trailer y al final la placa. Los que ya están activos no se tocan. Si Silogtran exige imágenes/documentos que faltan, ese ente no se activa y se listan los faltantes.`,
+    description: `ACTIVA en Silogtran lo que la persona pidió de una placa. Sin \`entes\`, activa SOLO la placa (el vehículo). Con \`entes\` activa exactamente esos, uno o varios: ${ACTIVABLE_ENTES.join(', ')} o todos (ej.: ["conductor"] para activar solo el conductor; ["trailer","poseedor"]; ["todos"]). Si la persona pidió «la placa y sus entes» o no está claro qué quiere, llama antes a revisar_vehiculo, muéstrale el estado de cada ente y pregúntale. Orden: terceros (una sola vez por persona aunque tenga varios roles), luego el trailer y al final la placa. Los que ya están activos no se tocan. Si Silogtran exige imágenes/documentos que faltan, ese ente no se activa y se listan los faltantes. Si te dan directamente la placa de un TRAILER (p. ej. R44941), llama con esa placa y sin entes: se activa el trailer.`,
     inputSchema: {
       type: 'object',
       properties: { placa: PLACA, entes: { type: 'array', description: 'Qué activar (uno o varios), según lo que pidió la persona. Si se omite, solo la placa.', items: { type: 'string', enum: [...ACTIVABLE_ENTES, 'todos'] }, minItems: 1, maxItems: 5 } },
@@ -80,8 +80,17 @@ const validDoc = (v) => {
   return d;
 };
 
-const realDeps = { withSilogtran, logActivation, review: reviewVehicle, activateEntities, activateVehicle, activateTrailer, activateThirdParty, searchThirdPartyItems };
-const REFUSED = ['ACTIVATE_NOT_ALLOWED', 'VEHICLE_ANNULLED', 'THIRD_PARTY_ANNULLED', 'PLATE_NOT_FOUND', 'THIRD_PARTY_NOT_FOUND', 'AMBIGUOUS_OPTION', 'ROW_STATE_UNKNOWN', 'INVALID_PARAMETER'];
+const realDeps = { withSilogtran, logActivation, review: reviewVehicle, activateEntities, activateVehicle, activateTrailer, searchTrailerItems, activateThirdParty, searchThirdPartyItems };
+const REFUSED = ['ACTIVATE_NOT_ALLOWED', 'VEHICLE_ANNULLED', 'TRAILER_NOT_FOUND', 'ACTIVATE_NOT_APPLIED', 'THIRD_PARTY_ANNULLED', 'PLATE_NOT_FOUND', 'THIRD_PARTY_NOT_FOUND', 'AMBIGUOUS_OPTION', 'ROW_STATE_UNKNOWN', 'INVALID_PARAMETER'];
+
+// A plate that is not in the vehicle module may be a TRAILER (e.g. R44941): look it up in the trailer module (read only).
+async function trailerStatus(deps, principal, placa) {
+  const { out } = await deps.withSilogtran(principal, (client) => (deps.searchTrailerItems ?? searchTrailerItems)(client, placa));
+  const rows = out.rows.filter((r) => String(r.placa).toUpperCase() === placa);
+  if (rows.length !== 1) throw new ApiError('AMBIGUOUS_OPTION', `Hay ${rows.length} filas para el trailer ${placa}; no puedo decir su estado con certeza.`, { status: 409 });
+  return rows[0].estado;
+}
+const notFoundBoth = (placa) => new ApiError('PLATE_NOT_FOUND', `No encontré ${placa} en Silogtran ni como vehículo ni como trailer. Revisa que esté bien escrita.`, { status: 404 });
 
 // Old tool names still called by clients that cached the first tool list (ChatGPT does not refresh it by itself).
 const ALIASES = { consultar_vehiculo: 'revisar_vehiculo' };
@@ -98,8 +107,15 @@ export async function callTool(name, args = {}, deps = realDeps, principal = { k
   if (name === 'revisar_vehiculo') {
     try {
       const placa = validPlate(args.placa);
-      const { out } = await deps.withSilogtran(principal, (client) => deps.review(client, placa));
-      return text(reviewText(out), { structuredContent: { ok: true, ...out } });
+      try {
+        const { out } = await deps.withSilogtran(principal, (client) => deps.review(client, placa));
+        return text(reviewText(out), { structuredContent: { ok: true, ...out } });
+      } catch (e) {
+        if (e?.code !== 'PLATE_NOT_FOUND') throw e;
+        let estado;
+        try { estado = await trailerStatus(deps, principal, placa); } catch (t) { throw t?.code === 'TRAILER_NOT_FOUND' ? notFoundBoth(placa) : t; }
+        return text(`${placa} es un TRAILER (no un vehículo). Estado: ${estado === 'ACTIVO' ? '✅' : '❌'} ${estado}.${estado === 'ACTIVO' ? '' : ' Se puede activar con activar_vehiculo indicando esta placa.'}`, { structuredContent: { ok: true, tipo: 'trailer', placa, estado } });
+      }
     } catch (e) {
       return errorResult(e);
     }
@@ -125,6 +141,17 @@ export async function callTool(name, args = {}, deps = realDeps, principal = { k
       const failed = results.some((x) => x.resultado === 'ERROR');
       return text(activationText(placa, results, notes), { ...(failed ? { isError: true } : {}), structuredContent: { ok: !failed, placa, resultados: results.map(({ etiqueta, nombre, resultado, codigo, detalle, faltantes }) => ({ ente: etiqueta, nombre, resultado, codigo, detalle, faltantes })) } });
     } catch (e) {
+      if (e?.code === 'PLATE_NOT_FOUND' && (args.entes === undefined || args.entes === null)) {
+        try {
+          const t = await deps.withSilogtran(principal, (client) => (deps.activateTrailer ?? activateTrailer)(client, placa));
+          await audit({ tipo: 'trailer', referencia: placa, actor: t.actor, resultado: t.out.changed ? 'ACTIVATED' : 'ALREADY_ACTIVE' });
+          return text(t.out.changed ? `✅ Trailer ${placa} quedó ACTIVO${t.out.verified ? ' (verificado)' : ' (no pude verificarlo; revisa en Silogtran)'}.` : `Trailer ${placa}: ya estaba ACTIVO; no hice ningún cambio.`, { structuredContent: { ok: true, tipo: 'trailer', placa, changed: t.out.changed, verified: t.out.verified } });
+        } catch (t) {
+          const err = t?.code === 'TRAILER_NOT_FOUND' ? notFoundBoth(placa) : t;
+          await audit({ tipo: 'trailer', referencia: placa, resultado: REFUSED.includes(err?.code) ? 'REFUSED' : 'ERROR', error_code: err?.code || 'ERROR', detalle: err?.extra?.faltantes?.join(', ') });
+          return errorResult(err);
+        }
+      }
       await audit({ tipo: 'vehiculo', referencia: placa, resultado: REFUSED.includes(e?.code) ? 'REFUSED' : 'ERROR', error_code: e?.code || 'ERROR', detalle: e?.detail });
       return errorResult(e);
     }
