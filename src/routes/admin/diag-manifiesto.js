@@ -1,4 +1,4 @@
-// POST /api/admin/diag-manifiesto { manifiesto, usuario?, imprimir? } — READ-ONLY unless `imprimir` (a button label) is sent. Opens the saved manifest page and reports what the page shows about the
+// POST /api/admin/diag-manifiesto { manifiesto, usuario?, imprimir?, enviar? } — READ-ONLY unless `imprimir` (a button label) or `enviar:true` («Enviar Ministerio», once) is sent. Opens the saved manifest page and reports what the page shows about the
 // Ministry (RNDC): the number text and every message-looking element (id + text, capped) plus the resend buttons (ids only). Used to learn the
 // real structure of the Ministry's answer/error. Saves nothing.
 import * as cheerio from 'cheerio';
@@ -9,6 +9,7 @@ import { withLock } from '../../store/locks.js';
 import { assertActorActive, openActorSession, resolveActorId, sessionKey } from '../../silogtran/userSession.js';
 import { parseRndc } from '../../silogtran/grabar.js';
 import { pressPrintButton } from '../../silogtran/imprimir.js';
+import { sendToMinistry } from '../../silogtran/ministerio.js';
 
 const tidy = (t, n = 400) => String(t ?? '').replace(/[\u0000-\u001f ]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 
@@ -73,6 +74,16 @@ export default async function handler(req, res) {
       // `imprimir` must be the exact button label and is the admin's explicit go-ahead to press it once.
       const label = String(req.body?.imprimir ?? '').trim();
       if (label) insp.pulsado = await client.enqueue(() => pressPrint(client, manifiesto, label));
+      // `enviar:true` presses «Enviar Ministerio» ONCE (skipped if the manifest already has a radicado) and reports what the answer shows.
+      if (req.body?.enviar === true) {
+        insp.enviado = await client.enqueue(async () => {
+          const r = await sendToMinistry(client, manifiesto);
+          if (r.skipped) return { omitido: r.skipped, rndc: r.rndc };
+          const after = inspectManifest(r.res.text);
+          const reread = inspectManifest((await client.request(`index.php?page=Despacho.Manifiesto_003.Home_111&manifiesto_codigo=${encodeURIComponent(manifiesto)}`)).text);
+          return { boton: r.btn, status: r.res.status, urlFinal: r.res.url.replace(/Hash=[^&]+/i, 'Hash=…'), respuesta: { numero: after.numero, rndc: after.rndc, mensajes: after.mensajes }, despuesDeReleer: { numero: reread.numero, rndc: reread.rndc, mensajes: reread.mensajes } };
+        });
+      }
       return insp;
     });
     res.status(200).json({ ok: true, manifiesto, ...out });
