@@ -96,6 +96,9 @@ export function reviewText(r) {
   lines.push(r.listoParaDespachar
     ? '→ Todo activo: la placa está lista para despachar.'
     : `→ Todavía NO se puede despachar. Falta activar: ${[...new Set(r.inactivos.map((i) => i.ente))].join(', ') || 'revisar datos faltantes'}.`);
+  const missing = [...new Set(r.inactivos.map((i) => i.ente))];
+  // Tells the assistant exactly how to activate what is missing (terceros included: they are activated through activar_vehiculo, by role).
+  if (missing.length) lines.push(`(Para activar lo que falta usa activar_vehiculo con placa ${r.placa} y entes ${JSON.stringify(missing)}, o ["todos"]. Los terceros —conductor, propietario, poseedor— se activan así, por su rol; no hace falta su documento.)`);
   return lines.join('\n');
 }
 

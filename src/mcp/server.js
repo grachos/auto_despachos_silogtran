@@ -15,6 +15,7 @@ export async function handleMessage(msg, deps, principal) {
   switch (msg.method) {
     case 'initialize': {
       const wanted = msg.params?.protocolVersion;
+      console.log('[mcp] initialize', String(wanted).slice(0, 20), String(msg.params?.clientInfo?.name ?? '-').replace(/[^\w .-]/g, '').slice(0, 40));
       return ok(msg.id, {
         protocolVersion: VERSIONS.includes(wanted) ? wanted : VERSIONS[0],
         capabilities: { tools: { listChanged: false } },
@@ -23,9 +24,11 @@ export async function handleMessage(msg, deps, principal) {
       });
     }
     case 'ping': return ok(msg.id, {});
-    case 'tools/list': return ok(msg.id, { tools: TOOLS.filter((t) => principal?.kind !== 'user' || t.scope === principal.scope).map(({ scope, ...t }) => t) });
+    case 'tools/list': console.log('[mcp] tools/list'); return ok(msg.id, { tools: TOOLS.filter((t) => principal?.kind !== 'user' || t.scope === principal.scope).map(({ scope, ...t }) => t) });
     case 'tools/call': {
       try {
+        // Name and argument KEYS only (never values): shows what the client actually sends.
+        console.log('[mcp] call', String(msg.params?.name).replace(/[^\w-]/g, '').slice(0, 40), Object.keys(msg.params?.arguments ?? {}).join(',') || '-');
         const result = await callTool(msg.params?.name, msg.params?.arguments ?? {}, deps, principal);
         return ok(msg.id, result);
       } catch (e) {
