@@ -64,7 +64,7 @@ const realDeps = {
   openActorSession, runPreparation, clearPending, setAnticipoCero, setAnticipoValor, setBeneficiario, addAnticipoPago, postGenerar, readRndc, setConfirmadoPor, getManifestPdfUrl,
 };
 
-export async function confirmDispatch(numero, { token, anticipo, beneficiario, usuario }, d = realDeps) {
+export async function confirmDispatch(numero, { token, anticipo, beneficiario, usuario, origen }, d = realDeps) {
   const payload = d.verifyToken(token);
   if (payload.numero !== numero || !payload.jti || !payload.input) {
     throw new ApiError('TOKEN_INVALID', 'El token no corresponde a esta solicitud; vuelve a ejecutar preparar.', { status: 400 });
@@ -77,10 +77,10 @@ export async function confirmDispatch(numero, { token, anticipo, beneficiario, u
   }
   await d.assertActorActive(uid); // DB only: fail fast (RELINK_REQUIRED / USER_NOT_ACTIVE) without touching Silogtran
   // Take the session lock BEFORE claiming anything, so a busy user leaves no claim behind.
-  return d.withLock(d.sessionKey(uid), () => runConfirmation(numero, { payload, uid, plan, beneficiario }, d));
+  return d.withLock(d.sessionKey(uid), () => runConfirmation(numero, { payload, uid, plan, beneficiario, origen }, d));
 }
 
-async function runConfirmation(numero, { payload, uid, plan, beneficiario }, d) {
+async function runConfirmation(numero, { payload, uid, plan, beneficiario, origen }, d) {
   const claim = await d.claimConfirmation(payload.jti, numero);
   if (claim.state === 'DONE') return { ...claim.result, repeated: true };
   if (claim.state === 'UNKNOWN') {
@@ -89,7 +89,7 @@ async function runConfirmation(numero, { payload, uid, plan, beneficiario }, d) 
 
   const t0 = Date.now();
   const fuente = payload.input.fuente === 'empresas' ? 'empresas' : 'activos';
-  const base = { user_id: uid, fuente, placa: payload.input.placa ?? null, solicitud_item: payload.item ?? null, anticipo_modo: plan.mode };
+  const base = { user_id: uid, fuente, placa: payload.input.placa ?? null, solicitud_item: payload.item ?? null, anticipo_modo: plan.mode, origen: ['api', 'whatsapp', 'mcp'].includes(origen) ? origen : null };
   let prepareMs = null;
   let client;
   let saving = false;

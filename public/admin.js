@@ -146,6 +146,7 @@ async function loadDispatches() {
   renderTable($('dispTable'), [
     { h: 'Fecha', v: (r) => when(r.fecha) },
     { h: 'Usuario', v: (r) => r.usuario || 'API (usuario cero)' },
+    { h: 'Origen', v: (r) => ({ api: 'API', whatsapp: 'WhatsApp', mcp: 'MCP' }[r.origen] || '—') },
     { h: 'Solicitud', v: (r) => dash(r.solicitud) },
     { h: 'Placa', v: (r) => dash(r.placa) },
     { h: 'Estado', v: (r) => estadoBadge(r.estado) },

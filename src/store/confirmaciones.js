@@ -39,7 +39,7 @@ export async function claimConfirmation(tokenId, numero) {
 // Columns the admin panel reads; only these can be written through `fields`.
 const METRIC_COLUMNS = new Set([
   'user_id', 'placa', 'solicitud_item', 'anticipo_modo', 'anticipo_valor', 'orden_cargue', 'remesa', 'manifiesto', 'transferencia',
-  'fuente', 'radicado', 'rndc_migrated', 'rndc_fecha_hora', 'rndc_checked_at', 'prepare_ms', 'save_ms', 'total_ms', 'error_code',
+  'fuente', 'radicado', 'rndc_migrated', 'rndc_fecha_hora', 'rndc_checked_at', 'prepare_ms', 'save_ms', 'total_ms', 'error_code', 'origen',
 ]);
 
 export async function markConfirmation(tokenId, status, { result, detail, fields } = {}) {

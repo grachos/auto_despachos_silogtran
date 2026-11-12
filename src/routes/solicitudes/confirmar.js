@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     requireApiKey(req);
     requireConfig();
     const numero = assertNumero(req.query.numero);
-    res.status(200).json(await confirmDispatch(numero, parseConfirmar(req.body)));
+    res.status(200).json(await confirmDispatch(numero, { ...parseConfirmar(req.body), origen: 'api' }));
   } catch (e) {
     sendError(res, e);
   }

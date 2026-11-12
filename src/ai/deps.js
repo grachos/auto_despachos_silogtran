@@ -15,7 +15,7 @@ export const realFlow = createFlow({
   chat: chatComplete,
   transcribe,
   downloadMedia: (id) => downloadMedia(id),
-  confirmDispatch,
+  confirmDispatch: (numero, o) => confirmDispatch(numero, { ...o, origen: 'whatsapp' }),
   watchMinistry: startMinistryWatch,
   prepareDispatch,
   withLock: (key, fn) => withLock(key, fn),

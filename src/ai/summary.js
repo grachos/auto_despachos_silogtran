@@ -63,3 +63,28 @@ export function resultText(r, resumen, { withLink = true } = {}) {
   if (r.ministerio !== 'NO_APLICA') lines.push(r.rndc?.migrated ? `Ministerio: radicado ${r.rndc.radicado}` : 'Ministerio: verificando el radicado… te aviso por aquí en un momento.');
   return lines.join('\n');
 }
+
+// Why a pressed button / confirmation is not usable, and how each confirm error ends the pending row (shared by WhatsApp and the MCP).
+export const EXPLAIN = {
+  PROCESSING: 'Ya estoy procesando tu confirmación; espera unos segundos.',
+  USED: 'Ese despacho ya fue confirmado.',
+  CANCELLED: 'Ese despacho fue cancelado.',
+  SUPERSEDED: 'Ese resumen ya no está vigente: pediste otro después. Usa los botones del más reciente.',
+  EXPIRED: 'Ese resumen venció (dura 15 minutos). ¿Lo preparo de nuevo con los mismos datos?',
+  NOT_FOUND: 'No encontré ese despacho. Pídemelo de nuevo.',
+};
+
+// Confirm errors: deterministic text and the final state of the pending row (default: back to PENDING so the button can be tapped again).
+export const CONFIRM_ERRORS = {
+  ANTICIPO_CHANGED: { text: 'El anticipo cambió desde que preparé el resumen. ¿Lo preparo de nuevo para ver el valor actualizado?', final: 'SUPERSEDED', again: true },
+  TOKEN_EXPIRED: { text: 'El resumen venció (dura 15 minutos). ¿Lo preparo de nuevo con los mismos datos?', final: 'SUPERSEDED', again: true },
+  TOKEN_INVALID: { text: 'No pude validar ese resumen. ¿Lo preparo de nuevo con los mismos datos?', final: 'SUPERSEDED', again: true },
+  USER_BUSY: { text: 'Hay otra operación tuya en curso; espera unos segundos y vuelve a pulsar el botón.' },
+  SOLICITUD_LOCKED: { text: 'Esa solicitud se está procesando ahora mismo; espera unos segundos y vuelve a pulsar el botón.' },
+  CONFIRMATION_IN_PROGRESS: { text: 'Esa confirmación ya está en proceso; espera unos segundos y vuelve a pulsar el botón.' },
+  CONFIRMATION_UNKNOWN: { text: 'No puedo confirmar si Silogtran guardó el despacho. Revísalo en Silogtran antes de repetirlo.', final: 'USED' },
+  SAVE_RESULT_UNKNOWN: { text: 'No puedo confirmar si Silogtran guardó el despacho. Revísalo en Silogtran antes de repetirlo.', final: 'USED' },
+  SAVE_REJECTED: { text: 'Silogtran no guardó el despacho. Revisa los datos y pídemelo de nuevo.', final: 'USED' },
+  RELINK_REQUIRED: { text: 'Tu usuario o contraseña de Silogtran ya no son válidos. Pide un link nuevo al administrador y vuelve a ingresar.', final: 'SUPERSEDED' },
+  CREDENTIALS_INVALID: { text: 'Tu usuario o contraseña de Silogtran ya no son válidos. Pide un link nuevo al administrador y vuelve a ingresar.', final: 'SUPERSEDED' },
+};

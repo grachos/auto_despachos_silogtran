@@ -10,6 +10,7 @@ import { buscarSolicitud } from '../silogtran/solicitud.js';
 import { runPreparation } from '../silogtran/preparar.js';
 import { readVisorList } from '../silogtran/lista.js';
 import { plateStatus } from '../silogtran/placa.js';
+import { readRndc } from '../silogtran/grabar.js';
 import { getUser } from '../store/usuarios.js';
 
 export function assertNumero(raw) {
@@ -68,4 +69,15 @@ export async function checkPlate(userId, placa) {
     console.error('[placa] check skipped:', e?.code || e?.name || 'error');
     return null;
   }
+}
+
+// Read-only: the Ministry (RNDC) state of one manifest, with the actor's own session. null = the screen shows no state.
+export async function manifestStatus(userId, manifiesto) {
+  const m = String(manifiesto ?? '').trim();
+  if (!/^\d{3,20}$/.test(m)) throw new ApiError('INVALID_PARAMETER', 'El número de manifiesto debe contener solo dígitos.', { status: 400 });
+  await assertActorActive(userId);
+  return withLock(sessionKey(userId), async () => {
+    const { client } = await openActorSession(userId);
+    return client.enqueue(() => readRndc(client, m));
+  });
 }
