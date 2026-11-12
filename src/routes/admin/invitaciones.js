@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     let user;
     if (userId) {
       user = await findUserByRef(userId);
-      if (!user) throw new ApiError('USER_NOT_FOUND', 'No existe ese usuario. Escribe su ID o su usuario de Silogtran.', { status: 404 });
+      if (!user) throw new ApiError('USER_NOT_FOUND', 'No existe ese usuario. Escribe su nombre tal como lo creaste, su ID o su usuario de Silogtran (este último solo existe después de que la persona ingresó una vez).', { status: 404 });
     } else {
       const n = String(nombre ?? '').trim();
       if (!n || n.length > 80) throw new ApiError('INVALID_PARAMETER', 'Falta el nombre del usuario (máximo 80 caracteres).', { status: 400 });

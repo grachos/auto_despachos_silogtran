@@ -25,7 +25,13 @@ export async function findUserByRef(ref) {
   const r = String(ref ?? '').trim();
   if (!r) return null;
   const q = supabase().from('app_users').select('id, nombre, silog_user, status, relink_required');
-  return eff(await run(UUID_RE.test(r) ? q.eq('id', r).maybeSingle() : q.eq('silog_user_key', r.toLowerCase()).maybeSingle()));
+  if (UUID_RE.test(r)) return eff(await run(q.eq('id', r).maybeSingle()));
+  const bySilog = eff(await run(q.eq('silog_user_key', r.toLowerCase()).maybeSingle()));
+  if (bySilog) return bySilog;
+  // A person who has not logged in yet has no Silogtran user: also accept the name the admin gave them (exact, case-insensitive, must be unique).
+  const esc = r.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const rows = await run(supabase().from('app_users').select('id, nombre, silog_user, status, relink_required').ilike('nombre', esc).limit(2));
+  return rows?.length === 1 ? eff(rows[0]) : null;
 }
 
 export const getUser = async (id) => eff(await run(supabase().from('app_users').select('id, nombre, silog_user, status, relink_required').eq('id', id).maybeSingle()));

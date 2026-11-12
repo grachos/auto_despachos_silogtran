@@ -16,6 +16,14 @@ const SOFT_BUDGET_MS = 40_000; // after this, no more readings / PDF (Vercel kil
 
 const cut = (t, n) => String(t ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 
+// The service wraps messages as «?xml version=… ? root ErrorError MAN157: … Usuario: 1768/»: keep only the readable message.
+export const cleanMinistryMessage = (m) => {
+  let t = String(m ?? '');
+  const xml = /^\??xml[^?]*\?\s*(?:root\s*)?/i; // only strip the leftover «Error» tags when that XML wrapper was there
+  if (xml.test(t)) t = t.replace(xml, '').replace(/^(?:Error\s*)+/i, '');
+  return t.replace(/\s*Usuario\s*:\s*\d+\s*\/?\s*$/i, '').replace(/\s*\/\s*$/, '').trim();
+};
+
 // Safe digest of the Ministry's plain-text report: one entry per «Informacion de Envio de <section>», personal document numbers masked,
 // long numbers in error messages masked. Success lines (REGISTRO INGRESADO) are counted, other messages are reported as errors.
 export function summarizeMinistryReport(text) {
@@ -23,7 +31,7 @@ export function summarizeMinistryReport(text) {
   const parts = t.split(/Informacion de Envio de\s+/i).slice(1);
   const secciones = parts.map((p) => {
     const nombre = cut(p.split(/\s+/)[0], 40);
-    const msgs = [...p.matchAll(/Informacion\s*:\s*(.+?)(?=\s+Xml\b|\s+Documento\s*:|\s+Codigo\s*:|$)/gi)].map((m) => cut(m[1], 200));
+    const msgs = [...p.matchAll(/Informacion\s*:\s*(.+?)(?=\s+Xml\b|\s+Documento\s*:|\s+Codigo\s*:|$)/gi)].map((m) => cleanMinistryMessage(cut(m[1], 300)).slice(0, 200));
     const ok = msgs.filter((m) => /REGISTRO INGRESADO/i.test(m)).length;
     const errores = msgs.filter((m) => !/REGISTRO INGRESADO/i.test(m)).map((m) => m.replace(/\b\d{7,}\b/g, '***')).slice(0, 5);
     if (!msgs.length && /No hay Informacion para Enviar/i.test(p)) return { nombre, estado: 'SIN_INFORMACION' };
