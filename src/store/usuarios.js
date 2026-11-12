@@ -31,8 +31,8 @@ export async function findUserByRef(ref) {
 export const getUser = async (id) => eff(await run(supabase().from('app_users').select('id, nombre, silog_user, status, relink_required').eq('id', id).maybeSingle()));
 
 // One link per purpose. 'despachar' is reserved for the dispatch MCP (M6) and cannot be issued yet.
-export const INVITE_SCOPES = ['whatsapp', 'activar'];
-export const SCOPE_PAGE = { whatsapp: '/vincular', activar: '/mcp', despachar: '/mcp' };
+export const INVITE_SCOPES = ['whatsapp', 'activar', 'despachar'];
+export const SCOPE_PAGE = { whatsapp: '/vincular', activar: '/mcp', despachar: '/mcp-despacho' };
 
 export async function createInvitation(userId, tokenHash, scope = 'whatsapp') {
   const nowIso = new Date().toISOString();

@@ -29,7 +29,8 @@ export function resource(req, res) {
   if (preflight(req, res)) return;
   const b = baseUrl(req);
   res.setHeader('cache-control', 'public, max-age=300');
-  res.status(200).json({ resource: `${b}/api/mcp`, authorization_servers: [b], bearer_methods_supported: ['header'], scopes_supported: ['mcp'], resource_name: 'Silogtran: activación de vehículos' });
+  const dispatch = /(^|\/)api\/mcp-despacho\/?$/.test(String(req.query?.path ?? ''));
+  res.status(200).json({ resource: `${b}${dispatch ? '/api/mcp-despacho' : '/api/mcp'}`, authorization_servers: [b], bearer_methods_supported: ['header'], scopes_supported: ['mcp'], resource_name: dispatch ? 'Silogtran: despacho' : 'Silogtran: activación de vehículos' });
 }
 
 export function register(req, res) {
@@ -65,7 +66,7 @@ export async function authorize(req, res) {
     if (!client || !client.ru.includes(String(p.redirect_uri))) return page(res, 400, '<h1>Solicitud inválida</h1><p>El cliente o la dirección de retorno no son válidos. Vuelve a conectar desde tu aplicación.</p>');
     if (p.response_type !== 'code' || p.code_challenge_method !== 'S256' || !p.code_challenge) return page(res, 400, '<h1>Solicitud inválida</h1><p>Falta PKCE (S256).</p>');
     const hidden = FIELDS.map((f) => `<input type="hidden" name="${f}" value="${esc(p[f])}">`).join('');
-    const form = (msg) => `<h1>Autorizar acceso</h1><p><b>${esc(client.name)}</b> pide permiso para <b>consultar y activar vehículos en Silogtran</b>. Escribe tu <b>ticket de acceso</b> (lo generas en la página <b>/mcp</b> después de entrar con tu link) para continuar.</p>${msg ? `<p class="err">${esc(msg)}</p>` : ''}<form method="post" action="/api/oauth/authorize">${hidden}<input type="password" name="key" autocomplete="off" placeholder="Ticket de acceso" aria-label="Ticket de acceso" required autofocus><button type="submit">Autorizar</button></form>`;
+    const form = (msg) => `<h1>Autorizar acceso</h1><p><b>${esc(client.name)}</b> pide permiso para usar <b>herramientas de Silogtran con tu usuario</b>. Escribe tu <b>ticket de acceso</b> (lo generas en la página <b>/mcp</b> o <b>/mcp-despacho</b>, según el conector, después de entrar con tu link) para continuar.</p>${msg ? `<p class="err">${esc(msg)}</p>` : ''}<form method="post" action="/api/oauth/authorize">${hidden}<input type="password" name="key" autocomplete="off" placeholder="Ticket de acceso" aria-label="Ticket de acceso" required autofocus><button type="submit">Autorizar</button></form>`;
     if (req.method !== 'POST') return page(res, 200, form());
     let bind;
     try { bind = await authorizeSecret(req, p.key, client.name); } catch (e) { if (e instanceof ApiError && [403, 409, 429].includes(e.status)) return page(res, e.status, form(e.message)); throw e; }

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex"><title>Conectar mi IA (despacho) · Silogtran</title><link rel="stylesheet" href="/styles.css"></head>
+<body data-scope="despachar"><main>
+<h1>Conectar mi IA para despachar (MCP)</h1>
+<p id="intro" class="muted">Conecta Claude o ChatGPT para consultar solicitudes en Silogtran con tu propio usuario. Por ahora es solo de consulta; el despacho se habilita en un paso posterior.</p>
+
+<div id="off" class="msg warn hidden">Este acceso no está habilitado para tu usuario (o te lo quitaron). Pídele al administrador un link de despacho nuevo.</div>
+
+<div id="start" class="card hidden">
+  <p>Genera un <b>ticket de acceso</b>: dura 15 minutos y sirve una sola vez. Lo escribirás en la pantalla «Autorizar acceso» cuando agregues el conector.</p>
+  <div class="row"><button id="gen" class="btn primary" type="button">Generar ticket</button></div>
+</div>
+
+<div id="ticketbox" class="card hidden">
+  <p>Tu ticket de acceso:</p>
+  <div id="ticket" class="code"></div>
+  <p id="left" class="muted"></p>
+  <label for="url">Dirección del conector</label>
+  <input id="url" type="text" readonly>
+  <div class="row"><button id="copyurl" class="btn" type="button">Copiar dirección</button><button id="again" class="btn" type="button">Generar otro ticket</button></div>
+  <ol class="muted">
+    <li><b>Claude</b> (web, Desktop o celular): Ajustes → Conectores → Añadir conector personalizado → pega la dirección.</li>
+    <li><b>ChatGPT</b>: Ajustes → Apps / Conectores (modo desarrollador) → crear conector con la dirección.</li>
+    <li>Cuando se abra «Autorizar acceso», escribe el ticket. Todo lo que se consulte o se despache será con tu usuario de Silogtran.</li>
+  </ol>
+</div>
+
+<div id="conns" class="card hidden">
+  <h2>Mis conexiones</h2>
+  <div class="scroll"><table id="connTable"></table></div>
+  <p class="muted">Si pierdes un teléfono o ya no usas un cliente, revoca la conexión: deja de funcionar de inmediato.</p>
+</div>
+
+<div id="msg" class="msg hidden" role="status"></div>
+<footer><a href="/manual">Manual</a></footer>
+</main><script src="/app.js"></script><script src="/mcp.js"></script></body></html>

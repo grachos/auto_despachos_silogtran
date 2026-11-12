@@ -4,7 +4,9 @@ import { supabase } from './supabase.js';
 import { ApiError } from '../http/errors.js';
 import { getUser } from './usuarios.js';
 
-export const SCOPES = ['activar']; // 'despachar' comes with the dispatch MCP (M6)
+export const SCOPES = ['activar', 'despachar'];
+// Connector URL of each scope (the dispatch connector is a separate server so a person with only activations never sees dispatch tools).
+export const CONNECTOR_PATH = { activar: '/api/mcp', despachar: '/api/mcp-despacho' };
 export const TICKET_TTL_MS = 15 * 60 * 1000;
 export const MAX_TICKETS_PER_HOUR = 5;
 export const MAX_CONNECTIONS = 3; // per person and scope (Claude + ChatGPT + phone)

@@ -12,16 +12,22 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   try {
     requireEnv('SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'TOKEN_SECRET');
+    // /api/mcp = activation server; /api/mcp-despacho (rewrite -> ?srv=despacho) = dispatch server. Each only serves its own scope.
+    const srv = req.query?.srv === 'despacho' ? 'despachar' : 'activar';
     const principal = await authenticate(req);
     if (!principal) {
-      res.setHeader('www-authenticate', `Bearer resource_metadata="${baseUrl(req)}/.well-known/oauth-protected-resource"`);
+      const meta = srv === 'despachar' ? '/.well-known/oauth-protected-resource/api/mcp-despacho' : '/.well-known/oauth-protected-resource';
+      res.setHeader('www-authenticate', `Bearer resource_metadata="${baseUrl(req)}${meta}"`);
       return res.status(401).json({ error: 'unauthorized', error_description: 'Falta o es inválido el token de acceso.' });
+    }
+    if (srv === 'despachar' ? principal.kind !== 'user' || principal.scope !== 'despachar' : principal.kind === 'user' && principal.scope !== 'activar') {
+      return res.status(403).json({ jsonrpc: '2.0', id: null, error: { code: -32000, message: 'Este acceso no corresponde a este conector. Genera un ticket del tipo correcto en la página de tu link.' } });
     }
     if (req.method !== 'POST') {
       res.setHeader('allow', 'POST');
       return res.status(405).json({ jsonrpc: '2.0', id: null, error: { code: -32000, message: 'Usa POST (servidor sin estado).' } });
     }
-    const out = await handleBody(req.body, undefined, principal);
+    const out = await handleBody(req.body, undefined, principal, srv);
     if (out.body === null) return res.status(out.status).end();
     return res.status(out.status).json(out.body);
   } catch (e) {

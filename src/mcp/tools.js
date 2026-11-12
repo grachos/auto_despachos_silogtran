@@ -9,6 +9,7 @@ import { searchThirdPartyItems, activateThirdParty } from '../silogtran/terceros
 import { reviewVehicle, activateEntities, chosenEntes, reviewText, activationText, ACTIVABLE_ENTES } from '../silogtran/entes.js';
 import { logActivation } from '../store/activaciones.js';
 import { getUser } from '../store/usuarios.js';
+import { DISPATCH_TOOLS, DISPATCH_HANDLERS } from './despacho.js';
 
 const PLACA = { type: 'string', description: 'Placa del vehículo (letras y números, sin espacios), por ejemplo "ABC123".', minLength: 4, maxLength: 10 };
 const DOCUMENTO = { type: 'string', description: 'Número de documento (cédula o NIT) del tercero, solo dígitos.', minLength: 5, maxLength: 20 };
@@ -47,6 +48,7 @@ export const TOOLS = [
     annotations: { title: 'Activar tercero', readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     scope: 'activar',
   },
+  ...DISPATCH_TOOLS,
 ];
 
 const text = (t, extra = {}) => ({ content: [{ type: 'text', text: t }], ...extra });
@@ -101,6 +103,16 @@ export async function callTool(name, args = {}, deps = realDeps, principal = { k
   const tool = TOOLS.find((t) => t.name === name);
   if (!tool) throw new ApiError('UNKNOWN_TOOL', `No existe la herramienta ${String(name).slice(0, 40)}.`, { status: 404 });
   if (principal.kind === 'user' && principal.scope !== tool.scope) return fail('SCOPE_DENIED', 'Tu acceso no incluye esta herramienta.');
+  // The owner's MCP_KEY (user zero) only reaches the activation tools; dispatching always needs a PERSON with their own Silogtran session.
+  if (principal.kind !== 'user' && tool.scope !== 'activar') return fail('SCOPE_DENIED', 'Esta herramienta requiere un acceso personal (ticket), no la clave de administrador.');
+  if (DISPATCH_HANDLERS[name]) {
+    try {
+      const r = await DISPATCH_HANDLERS[name](args ?? {}, principal, deps.dispatchServices);
+      return text(r.text, { structuredContent: r.structured });
+    } catch (e) {
+      return errorResult(e);
+    }
+  }
   const who = { user_id: principal.kind === 'user' ? principal.uid : null, conexion_id: principal.kind === 'user' ? principal.mc : null };
   const audit = (row) => deps.logActivation({ actor: principal.kind === 'user' ? String(principal.uid) : 'admin (usuario cero)', ...who, ms: Date.now() - t0, ...row });
 

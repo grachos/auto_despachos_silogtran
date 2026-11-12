@@ -1,4 +1,5 @@
 const $ = (id) => document.getElementById(id);
+const SCOPE = document.body.dataset.scope || 'activar'; // the page of each purpose (/mcp = activar, /mcp-despacho = despachar)
 const show = (id, on) => $(id).classList.toggle('hidden', !on);
 let countdown = null, expiresAt = 0;
 const when = (iso) => (iso ? new Date(iso).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' }) : 'sin usar');
@@ -23,7 +24,7 @@ function renderConnections(list) {
     b.addEventListener('click', async () => {
       if (!confirm('¿Revocar esta conexión? Dejará de funcionar de inmediato.')) return;
       b.disabled = true;
-      await api('/api/vinculacion/mcp-revocar', { method: 'POST', body: JSON.stringify({ id: c.id }) });
+      await api('/api/vinculacion/mcp-revocar', { method: 'POST', body: JSON.stringify({ id: c.id, scope: SCOPE }) });
       load();
     });
     tr.insertCell().appendChild(b);
@@ -31,10 +32,10 @@ function renderConnections(list) {
 }
 
 async function load() {
-  const { status, body } = await api('/api/vinculacion/mcp-conexiones');
+  const { status, body } = await api(`/api/vinculacion/mcp-conexiones?scope=${SCOPE}`);
   if (status === 401) { showMsg($('msg'), 'err', body.message || 'Tu sesión venció. Entra de nuevo con tu link de invitación.'); show('start', false); show('conns', false); return; }
   hideMsg($('msg'));
-  const enabled = (body.alcances || []).includes('activar');
+  const enabled = (body.alcances || []).includes(SCOPE);
   show('off', !enabled); show('start', enabled && $('ticketbox').classList.contains('hidden'));
   $('url').value = body.conectorUrl || '';
   show('conns', true);
@@ -51,7 +52,7 @@ async function generate() {
   hideMsg($('msg'));
   $('gen').disabled = $('again').disabled = true;
   try {
-    const { status, body } = await api('/api/vinculacion/mcp-ticket', { method: 'POST', body: JSON.stringify({ scope: 'activar' }) });
+    const { status, body } = await api('/api/vinculacion/mcp-ticket', { method: 'POST', body: JSON.stringify({ scope: SCOPE }) });
     if (status !== 200 || !body.ok) { showMsg($('msg'), 'err', body.message || 'No se pudo generar el ticket.'); return; }
     $('ticket').textContent = body.ticket;
     $('url').value = body.conectorUrl;
