@@ -80,7 +80,7 @@ export default async function handler(req, res) {
           const r = await sendToMinistry(client, manifiesto);
           if (r.skipped) return { omitido: r.skipped, rndc: r.rndc };
           const reread = inspectManifest((await client.request(`index.php?page=Despacho.Manifiesto_003.Home_111&manifiesto_codigo=${encodeURIComponent(manifiesto)}`)).text);
-          return { boton: r.btn, silogStatus: r.silogStatus, traspaso: r.handoff, ministerio: r.ministry, despuesDeReleer: { numero: reread.numero, rndc: reread.rndc, mensajes: reread.mensajes } };
+          return { boton: r.btn, silogStatus: r.silogStatus, traspaso: r.handoff, pistas: r.hints ?? null, ministerio: r.ministry, despuesDeReleer: { numero: reread.numero, rndc: reread.rndc, mensajes: reread.mensajes } };
         });
       }
       return insp;

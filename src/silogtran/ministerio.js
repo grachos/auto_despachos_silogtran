@@ -33,6 +33,18 @@ export function findMinistryUrl(text, manifiesto) {
   return null;
 }
 
+// Short snippets of the press answer around hand-off words (window.open / location / ministerio), to learn how Silogtran builds the
+// hand-off when it is not a plain URL. Only code fragments around those words; capped; no other page content.
+export function handoffHints(text) {
+  const out = [];
+  for (const m of String(text).matchAll(/.{0,120}(?:window\.open|location\.(?:href|replace)|consumoministerio|ministerio\.colombiasoftware).{0,160}/gi)) {
+    const t = m[0].replace(/[\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 280); // code fragment: keep tags/script text as is
+    if (t && !out.includes(t)) out.push(t);
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+
 // Returns { skipped: 'ALREADY_MIGRATED', rndc } without pressing, or
 // { skipped: null, btn, silogStatus, ministry: { status, url, texto } | null, before }. `ministry` is null when Silogtran gave no hand-off.
 export async function sendToMinistry(client, manifiesto, { timeoutSec = 25, fetchImpl = globalThis.fetch } = {}) {
@@ -48,6 +60,7 @@ export async function sendToMinistry(client, manifiesto, { timeoutSec = 25, fetc
   const { res, btn } = pressed;
   const target = res.redirectTo ? validMinistryUrl(res.redirectTo, manifiesto) : findMinistryUrl(res.text, manifiesto);
   const out = { skipped: null, btn, silogStatus: res.status, before, ministry: null, handoff: res.redirectTo ? 'redirect' : target ? 'page' : 'none' };
+  if (out.handoff === 'none') out.hints = handoffHints(res.text);
   if (res.redirectTo && !target) throw new ApiError('MINISTRY_REDIRECT_UNEXPECTED', 'Silogtran redirigió a una dirección que no es el servicio del Ministerio; no la seguí.', { status: 502 });
   if (!target) return out;
   try {
