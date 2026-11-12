@@ -10,6 +10,7 @@ import { assertActorActive, openActorSession, resolveActorId, sessionKey } from 
 import { parseRndc } from '../../silogtran/grabar.js';
 import { pressPrintButton } from '../../silogtran/imprimir.js';
 import { sendToMinistry } from '../../silogtran/ministerio.js';
+import { resendToMinistry, resendText } from '../../ministerio/resend.js';
 
 const tidy = (t, n = 400) => String(t ?? '').replace(/[\u0000-\u001f ]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 
@@ -67,6 +68,11 @@ export default async function handler(req, res) {
     if (!/^\d{4,15}$/.test(manifiesto)) throw new ApiError('INVALID_PARAMETER', 'Manifiesto inválido (solo dígitos).', { status: 400 });
     const userId = await resolveActorId(req.body?.usuario);
     await assertActorActive(userId);
+    // `reenviar:true`: the REAL service (owner check, cap of 3, radicado wait, new PDF) run as `usuario` (the owner of the manifest). It takes its own lock.
+    if (req.body?.reenviar === true) {
+      const r = await resendToMinistry(userId, manifiesto);
+      return res.status(200).json({ ...r, texto: resendText(r) });
+    }
     const out = await withLock(sessionKey(userId), async () => {
       const { client } = await openActorSession(userId);
       const page = await client.enqueue(() => client.request(`index.php?page=Despacho.Manifiesto_003.Home_111&manifiesto_codigo=${encodeURIComponent(manifiesto)}`));

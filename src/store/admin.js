@@ -69,3 +69,19 @@ export async function saveRndc(tokenId, rndc) {
     radicado: rndc.radicado, rndc_migrated: rndc.migrated, rndc_fecha_hora: rndc.fechaHora, rndc_checked_at: new Date().toISOString(),
   }).eq('token_id', tokenId));
 }
+
+// The saved dispatch of a manifest (latest DONE row), to check who owns it before resending it to the Ministry.
+export async function findDispatchByManifest(manifiesto) {
+  const rows = await run(supabase().from('silog_confirmaciones')
+    .select('token_id, user_id, fuente, radicado, ministerio_reintentos').eq('manifiesto', manifiesto).eq('status', 'DONE')
+    .order('created_at', { ascending: false }).limit(1));
+  return rows[0] ?? null;
+}
+
+// Compare-and-set counter of resends (true only if `current` was still the stored value).
+export async function bumpMinistryRetry(tokenId, current) {
+  const rows = await run(supabase().from('silog_confirmaciones')
+    .update({ ministerio_reintentos: current + 1, ministerio_reintento_at: new Date().toISOString() })
+    .eq('token_id', tokenId).eq('ministerio_reintentos', current).select('token_id'));
+  return rows.length > 0;
+}
