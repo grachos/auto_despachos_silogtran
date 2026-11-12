@@ -1,11 +1,17 @@
 // Read-only tools of the DISPATCH MCP (scope `despachar`). They run with the Silogtran session of the person who connected (principal.uid),
 // reusing the same services as the WhatsApp assistant. Handlers return { text, structured } or throw ApiError; tools.js wraps them.
-// Nothing here writes to Silogtran: preparing/confirming a dispatch comes in later increments.
+// Nothing here SAVES in Silogtran: `preparar_despacho` fills the form and leaves a pending summary (confirming comes in the next increment).
+import { createHmac } from 'node:crypto';
 import { ApiError } from '../http/errors.js';
 import { cleanFilters, filterList, buildListText } from '../silogtran/lista.js';
-import { consultSolicitud, listSolicitudes, checkPlate } from '../dispatch/service.js';
+import { consultSolicitud, listSolicitudes, checkPlate, prepareDispatch } from '../dispatch/service.js';
+import { createPending } from '../store/ia.js';
+import { buildSummaryText } from '../ai/summary.js';
+import { chooseExternal } from '../ai/tools.js';
 
 const OPT = (description) => ({ type: 'string', description, maxLength: 80 });
+const CITA = (label) => ({ type: 'object', additionalProperties: false, required: ['fecha', 'hora'], properties: { fecha: { type: 'string', description: `${label}: fecha YYYY-MM-DD` }, hora: { type: 'string', description: `${label}: hora HH:mm (24 h)` } } });
+const TIEMPO = (description) => ({ type: 'object', additionalProperties: false, required: ['horas', 'minutos'], properties: { horas: { type: 'integer', minimum: 0, maximum: 99 }, minutos: { type: 'integer', minimum: 0, maximum: 59 } }, description });
 const clip = (v, n = 60) => String(v ?? '').replace(/[\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 
 export const DISPATCH_TOOLS = [
@@ -41,12 +47,51 @@ export const DISPATCH_TOOLS = [
     annotations: { title: 'Comprobar una placa', readOnlyHint: true, openWorldHint: true },
     scope: 'despachar',
   },
+  {
+    name: 'preparar_despacho',
+    description: 'Prepara un despacho en Silogtran SIN grabarlo y devuelve el RESUMEN real (placa, conductor, ruta, citas, anticipo) con un código de confirmación. Úsala en cuanto tengas solicitud, placa y las dos citas (cargue y descargue); no preguntes nada más por adelantado. Si el vehículo es externo y falta beneficiario o valor del anticipo, devuelve la pregunta para la persona: pásala tal cual y vuelve a llamar con lo que responda (nunca lo supongas ni lo reutilices de otro despacho). Muestra SIEMPRE el resumen completo a la persona. Las citas son fecha YYYY-MM-DD y hora HH:mm en formato 24 h (hora de Bogotá). Los demás campos solo si la persona los dijo.',
+    inputSchema: {
+      type: 'object', additionalProperties: false, required: ['numero', 'placa', 'citaCargue', 'citaDescargue'],
+      properties: {
+        numero: { type: 'string', description: 'Número de la solicitud, solo dígitos.', minLength: 4, maxLength: 20 },
+        item: { type: 'integer', description: 'Ítem de la solicitud; omítelo si solo hay uno.' },
+        placa: { type: 'string', description: 'Placa del vehículo (letras y números).', minLength: 4, maxLength: 10 },
+        citaCargue: CITA('Cita de cargue'),
+        citaDescargue: CITA('Cita de descargue'),
+        fuente: { type: 'string', enum: ['activos', 'empresas'], description: '«empresas» solo si la persona dijo «viaje empresa» o «por empresa»; si no, omítelo (Vehículos Activos).' },
+        tipoManifiesto: OPT('Tipo de manifiesto (código o nombre); omítelo para el valor por defecto.'),
+        tipoOperacion: OPT('Solo si la persona lo pidió expresamente (ej. «líquida», «carga seca»).'),
+        tiempoCargue: TIEMPO('Tiempo pactado de cargue (por defecto 2 h 0 min; no lo preguntes).'),
+        tiempoDescargue: TIEMPO('Tiempo pactado de descargue (por defecto 2 h 0 min; no lo preguntes).'),
+        ordenCompra: OPT('Orden de compra, si la dieron.'),
+        observacionOrdenCargue: OPT('Observación de la orden de cargue, si la dieron.'),
+        observacionRemesa: OPT('Observación de la remesa, si la dieron.'),
+        contenedor: OPT('Número de contenedor, si aplica.'),
+        bl: OPT('Número de BL, si aplica.'),
+        beneficiario: { type: 'string', enum: ['conductor', 'poseedor'], description: 'Solo vehículos externos y SOLO si la persona lo dijo: a quién va el anticipo.' },
+        anticipo: { type: 'integer', minimum: 0, description: 'Solo vehículos externos y SOLO si la persona lo dijo: valor del anticipo en pesos (0 si no habrá).' },
+      },
+    },
+    annotations: { title: 'Preparar un despacho (no graba)', readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    scope: 'despachar',
+  },
 ];
 
 // Markdown for chat clients (the list builder was written for WhatsApp: *bold*).
 const toMarkdown = (t) => t.replace(/\*([^*\n]+)\*/g, '**$1**');
 
-export const dispatchServices = { listSolicitudes, consultSolicitud, checkPlate };
+export const dispatchServices = { listSolicitudes, consultSolicitud, checkPlate, prepareDispatch, createPending };
+
+// 4-digit code the person must type to confirm («confirmo 4821»). Derived from the pending id, so nothing extra is stored.
+// It forces the summary to be shown, but the model also sees it: a soft barrier, not a hard guarantee (see CLAUDE.md, M6).
+export function confirmCode(pendingId) {
+  const secret = process.env.TOKEN_SECRET;
+  if (!secret) throw new ApiError('CONFIG_MISSING', 'Falta configurar TOKEN_SECRET.', { status: 500 });
+  const n = createHmac('sha256', secret).update(`mcp-confirm:${pendingId}`).digest().readUInt32BE(0) % 10000;
+  return String(n).padStart(4, '0');
+}
+
+const FOOTER = (code) => `Código de confirmación: ${code}\nEste conector todavía NO graba despachos: esto es solo la preparación y no se grabó nada en Silogtran.`;
 
 export const DISPATCH_HANDLERS = {
   async listar_solicitudes(args, principal, services = dispatchServices) {
@@ -68,6 +113,28 @@ export const DISPATCH_HANDLERS = {
     for (const i of items) lines.push(`• Ítem ${i.item}: ${i.origen} → ${i.destino} · ${i.producto} — ${i.porDespachar > 0 ? `quedan ${i.porDespachar} vehículo(s) por despachar` : 'sin cupos (completa)'}`);
     if (!open.length) lines.push('Esta solicitud está AGOTADA: no tiene vehículos por despachar.');
     return { text: lines.join('\n'), structured: { ok: true, numero: String(s.numero), requiereContenedor: !!s.requiereContenedor, despachable: open.length > 0, items } };
+  },
+
+  async preparar_despacho(args, principal, services = dispatchServices) {
+    const placa = String(args.placa ?? '').trim().toUpperCase();
+    // Quick plate check first (fixed answers; any doubt continues with the normal preparation).
+    const plate = placa ? await Promise.resolve(services.checkPlate?.(principal.uid, placa)).catch(() => null) : null;
+    if (plate === 'missing') throw new ApiError('PLATE_NOT_FOUND', `No encontré la placa ${placa.replace(/[^A-Z0-9]/g, '')} en Silogtran. Revisa que esté bien escrita.`, { status: 404 });
+    if (plate === 'inactive') throw new ApiError('PLATE_INACTIVE', `La placa ${placa.replace(/[^A-Z0-9]/g, '')} está INACTIVA en Silogtran. Actívala con el conector de activaciones y vuelve a intentar.`, { status: 409 });
+    const r = await services.prepareDispatch(principal.uid, args.numero, args);
+    const ext = chooseExternal(r.resumen, args); // external vehicle: who gets the advance and how much are never assumed
+    if (ext.reply) return { text: toMarkdown(ext.reply), structured: { ...ext.ask, ok: ext.ask.ok } };
+    if (ext.ask) return { text: 'Falta información del anticipo.', structured: ext.ask };
+    if (ext.eleccion) r.resumen.eleccion = ext.eleccion;
+    r.resumen.origen = 'mcp'; // marks it so the WhatsApp «sí» never resends buttons for it
+    const id = await services.createPending(principal.uid, { numero: String(args.numero), token: r.token, resumen: r.resumen, anticipo: r.resumen.anticipoSugerido });
+    const code = confirmCode(id);
+    const s = r.resumen;
+    const interno = s.tipoAfiliado !== 'EXTERNO';
+    return {
+      text: toMarkdown(buildSummaryText(s, { footer: FOOTER(code) })) + `\n\nMuestra este resumen COMPLETO a la persona. Vence en 15 minutos.${interno && s.anticipoSugerido > 0 ? ' El anticipo es interno: la persona debe elegir «total» o «cero».' : ''}`,
+      structured: { ok: true, preparado: true, pendienteId: id, venceEnMinutos: 15, numero: String(args.numero), placa: clip(s.vehiculo?.placa, 10), afiliado: s.tipoAfiliado ?? null, anticipoSugerido: s.anticipoSugerido, anticipoElegido: s.eleccion?.anticipo ?? null, requiereElegirAnticipo: interno && s.anticipoSugerido > 0 },
+    };
   },
 
   async comprobar_placa(args, principal, services = dispatchServices) {

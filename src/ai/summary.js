@@ -9,7 +9,7 @@ const clean = (v) => String(v ?? '—').replace(/[\u0000-\u001f]/g, ' ').slice(0
 
 const span = (t) => `${Number(t?.horas) || 0} h${Number(t?.minutos) ? ` ${Number(t.minutos)} min` : ''}`;
 
-export function buildSummaryText(r) {
+export function buildSummaryText(r, { footer } = {}) {
   const lines = [
     '📋 *Resumen del despacho*',
     `Solicitud: ${clean(r.solicitud.numero)} (ítem ${clean(r.solicitud.item)}) · ${clean(r.solicitud.origen)} → ${clean(r.solicitud.destino)}`,
@@ -32,7 +32,7 @@ export function buildSummaryText(r) {
     lines.push(`Anticipo a entregar: ${money(r.eleccion.anticipo)}`);
     if (r.eleccion.anticipo > 0) lines.push('Banco: BANCOLOMBIA TERCEROS');
   } else lines.push(`Anticipo sugerido: ${money(r.anticipoSugerido)}`);
-  lines.push('', 'Revisa que todo esté bien y elige una opción. No se graba nada hasta que pulses un botón de confirmar.');
+  lines.push('', footer ?? 'Revisa que todo esté bien y elige una opción. No se graba nada hasta que pulses un botón de confirmar.');
   return lines.join('\n');
 }
 

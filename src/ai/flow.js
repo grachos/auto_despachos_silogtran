@@ -129,7 +129,7 @@ export function createFlow(d0) {
   // A typed/spoken "sí" never confirms: it re-sends the buttons. A typed "cancelar" cancels the pending one.
   async function typedAnswer(phone, link, text) {
     const pend = await d.ia.latestPending(link.userId);
-    if (!pend) return false;
+    if (!pend || pend.resumen?.origen === 'mcp') return false; // MCP summaries are confirmed in that chat, never by WhatsApp buttons
     if (isBareConfirm(text)) { await sendSummary(phone, pend.id, pend.resumen, T.resend); return true; }
     if (isBareCancel(text)) { await d.ia.cancelPending(pend.id, link.userId); await d.send(phone, T.cancelled); return true; }
     return false;
