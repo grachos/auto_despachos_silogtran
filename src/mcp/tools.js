@@ -17,14 +17,14 @@ const ID = { type: 'string', description: 'Id interno del tercero en Silogtran (
 export const TOOLS = [
   {
     name: 'revisar_vehiculo',
-    description: 'Revisa en Silogtran TODO lo que debe estar activo para despachar una placa: el vehículo, su trailer y los terceros conductor, propietario y poseedor (pueden ser la misma persona o distintas). Muestra el nombre y el estado (ACTIVO/INACTIVO) de cada uno. Solo lectura. Llámala SIEMPRE primero, muestra el resultado completo a la persona y pregúntale qué quiere activar.',
+    description: 'Revisa en Silogtran TODO lo que debe estar activo para despachar una placa: el vehículo, su trailer y los terceros conductor, propietario y poseedor (pueden ser la misma persona o distintas). Muestra el nombre y el estado (ACTIVO/INACTIVO) de cada uno. Solo lectura. Úsala cuando la persona pida revisar o no esté claro qué activar; si ya pidió activar todo, no hace falta: llama directamente a activar_vehiculo con ["todos"].',
     inputSchema: { type: 'object', properties: { placa: PLACA }, required: ['placa'], additionalProperties: false },
     annotations: { title: 'Revisar vehículo y sus entes', readOnlyHint: true, openWorldHint: true },
     scope: 'activar',
   },
   {
     name: 'activar_vehiculo',
-    description: `ACTIVA en Silogtran lo que la persona pidió de una placa. Sin \`entes\`, activa SOLO la placa (el vehículo). Con \`entes\` activa exactamente esos, uno o varios: ${ACTIVABLE_ENTES.join(', ')} o todos (ej.: ["conductor"] para activar solo el conductor; ["trailer","poseedor"]; ["todos"]). Si la persona pidió «la placa y sus entes» o no está claro qué quiere, llama antes a revisar_vehiculo, muéstrale el estado de cada ente y pregúntale. Orden: terceros (una sola vez por persona aunque tenga varios roles), luego el trailer y al final la placa. Los que ya están activos no se tocan. Si Silogtran exige imágenes/documentos que faltan, ese ente no se activa y se listan los faltantes. Si te dan directamente la placa de un TRAILER (p. ej. R44941), llama con esa placa y sin entes: se activa el trailer.`,
+    description: `ACTIVA en Silogtran lo que la persona pidió de una placa. Sin \`entes\`, activa SOLO la placa (el vehículo). Con \`entes\` activa exactamente esos, uno o varios: ${ACTIVABLE_ENTES.join(', ')} o todos (ej.: ["conductor"] para activar solo el conductor; ["trailer","poseedor"]; ["todos"]). Si la persona pide «todo», «todos los entes» o «la placa y sus entes», usa ["todos"] directamente, sin preguntar. Si no está claro qué quiere, llama antes a revisar_vehiculo, muéstrale el estado de cada ente y pregúntale. Orden: terceros (una sola vez por persona aunque tenga varios roles), luego el trailer y al final la placa. Los que ya están activos no se tocan. Si Silogtran exige imágenes/documentos que faltan, ese ente no se activa y se listan los faltantes. Si te dan directamente la placa de un TRAILER (p. ej. R44941), llama con esa placa y sin entes: se activa el trailer.`,
     inputSchema: {
       type: 'object',
       properties: { placa: PLACA, entes: { type: 'array', description: 'Qué activar (uno o varios), según lo que pidió la persona. Si se omite, solo la placa.', items: { type: 'string', enum: [...ACTIVABLE_ENTES, 'todos'] }, minItems: 1, maxItems: 5 } },
