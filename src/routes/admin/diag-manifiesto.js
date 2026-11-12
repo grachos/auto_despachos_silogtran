@@ -79,9 +79,8 @@ export default async function handler(req, res) {
         insp.enviado = await client.enqueue(async () => {
           const r = await sendToMinistry(client, manifiesto);
           if (r.skipped) return { omitido: r.skipped, rndc: r.rndc };
-          const after = inspectManifest(r.res.text);
           const reread = inspectManifest((await client.request(`index.php?page=Despacho.Manifiesto_003.Home_111&manifiesto_codigo=${encodeURIComponent(manifiesto)}`)).text);
-          return { boton: r.btn, status: r.res.status, urlFinal: r.res.url.replace(/Hash=[^&]+/i, 'Hash=…'), respuesta: { numero: after.numero, rndc: after.rndc, mensajes: after.mensajes }, despuesDeReleer: { numero: reread.numero, rndc: reread.rndc, mensajes: reread.mensajes } };
+          return { boton: r.btn, silogStatus: r.silogStatus, traspaso: r.handoff, ministerio: r.ministry, despuesDeReleer: { numero: reread.numero, rndc: reread.rndc, mensajes: reread.mensajes } };
         });
       }
       return insp;

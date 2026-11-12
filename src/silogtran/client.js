@@ -98,11 +98,17 @@ export class Silogtran {
     }
   }
 
-  async request(path, { method = 'GET', form = null, timeoutSec } = {}) {
+  async request(path, { method = 'GET', form = null, timeoutSec, externalRedirect = false } = {}) {
     let url = new URL(path, this.base);
+    let prevUrl = url.href;
     let wafTries = 0;
     for (let hops = 0; hops < 10; hops++) {
-      if (url.origin !== this.origin) throw new SilogtranError('Redirect outside Silogtran blocked.');
+      if (url.origin !== this.origin) {
+        // Callers that expect a hand-off to another site (e.g. the Ministry web service) get the target back, never followed here:
+        // the Silogtran cookies must not travel to another host.
+        if (externalRedirect) return { status: 302, url: prevUrl, redirectTo: url.href, body: Buffer.alloc(0), type: '', headers: new Headers(), text: '' };
+        throw new SilogtranError('Redirect outside Silogtran blocked.');
+      }
       const headers = { 'user-agent': UA, cookie: [...this.jar].map(([k, v]) => `${k}=${v}`).join('; ') };
       if (form) headers['content-type'] = 'application/x-www-form-urlencoded';
       let res;
@@ -125,6 +131,7 @@ export class Silogtran {
         continue;
       }
       if ([301, 302, 303, 307, 308].includes(res.status)) {
+        prevUrl = url.href;
         url = new URL(res.headers.get('location'), url);
         if (res.status !== 307 && res.status !== 308) {
           method = 'GET';

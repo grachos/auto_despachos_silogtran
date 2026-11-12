@@ -10,7 +10,7 @@ export const PRINT_LABEL = 'Imprimir Ministerio 2026';
 const manifestPage = (manifiesto) => `index.php?page=Despacho.Manifiesto_003.Home_111&manifiesto_codigo=${encodeURIComponent(manifiesto)}`;
 
 // Presses the print button; returns the raw answer ({ status, url, type, body, headers, text }) and the button found.
-export async function pressPrintButton(client, manifiesto, label = PRINT_LABEL, { timeoutSec } = {}) {
+export async function pressPrintButton(client, manifiesto, label = PRINT_LABEL, { timeoutSec, externalRedirect } = {}) {
   const page = await client.request(manifestPage(manifiesto), { timeoutSec });
   const $ = cheerio.load(page.text);
   const want = String(label).toLowerCase().replace(/\s+/g, '');
@@ -22,7 +22,7 @@ export async function pressPrintButton(client, manifiesto, label = PRINT_LABEL, 
   // Same as the browser capture: plain submit (empty PRADO_POSTBACK_TARGET/PARAMETER), the button name=value and every IDLockHidden_* = true.
   const body = { ...data, PRADO_POSTBACK_TARGET: '', PRADO_POSTBACK_PARAMETER: '', [btn.attribs.name]: btn.attribs.value ?? '' };
   for (const k of Object.keys(body)) if (/IDLockHidden_/.test(k)) body[k] = 'true';
-  const res = await client.request(action, { method: 'POST', form: body, timeoutSec });
+  const res = await client.request(action, { method: 'POST', form: body, timeoutSec, externalRedirect });
   return { res, btn: { id: btn.attribs.id ?? null, name: btn.attribs.name } };
 }
 
