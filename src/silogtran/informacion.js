@@ -262,7 +262,9 @@ export const defaultManifestType = (origen, destino) => (norm(origen) === norm(d
 
 function setManifestType(form, input, defaultCode) {
   const name = need(form, `${P}tipmanrndc_codigo`);
-  const opt = resolveOption(selectOptions(form, name), input ?? defaultCode, 'el tipo de manifiesto');
+  // «urbano» / «municipal» alone mean 6 («municipal» would also match 7, VARIOS VIAJES MUNICIPALES).
+  const alias = input != null && /^(?:(?:despacho|viaje|manifiesto)\s+)?(?:urbano|urbana|municipal)$/.test(norm(input)) ? '6' : null;
+  const opt = resolveOption(selectOptions(form, name), alias ?? input ?? defaultCode, 'el tipo de manifiesto');
   form.fields[name] = opt.value;
   return { codigo: opt.value, nombre: opt.text };
 }

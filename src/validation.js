@@ -49,8 +49,17 @@ function parseFuente(v) {
   throw bad('El campo fuente debe ser "activos" (Vehículos Activos) o "empresas" (pestaña Empresas).');
 }
 
+// Words that name a RNDC manifest type («Despacho urbano», «viaje municipal»), never an operation type. A caller (usually the model) that
+// puts one in tipoOperacion while leaving tipoManifiesto empty meant the manifest type: move it. An explicit tipoManifiesto always wins.
+const MANIFEST_WORDS = /^(?:(?:despacho|viaje|manifiesto)\s+)?(?:urbano|urbana|municipal|municipales|urbano o municipal|municipal o urbano|general|multiparada|ida y regreso|viaje vacio|vacio|varios viajes(?: en el dia| municipales)?)$/;
+const norm = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
 export function parsePreparar(body) {
-  const b = body && typeof body === 'object' ? body : {};
+  const b = { ...(body && typeof body === 'object' ? body : {}) };
+  if ((b.tipoManifiesto == null || String(b.tipoManifiesto).trim() === '') && b.tipoOperacion != null && MANIFEST_WORDS.test(norm(b.tipoOperacion))) {
+    b.tipoManifiesto = b.tipoOperacion;
+    b.tipoOperacion = null;
+  }
   const placa = text(b.placa, 'placa', '').toUpperCase();
   if (!placa) throw bad('Falta la placa del vehículo.');
   const item = b.item == null ? null : Number(b.item);

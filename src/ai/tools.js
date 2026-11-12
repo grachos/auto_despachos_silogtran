@@ -63,7 +63,7 @@ export const TOOLS = [
           citaDescargue: cita('Cita de descargue'),
           tiempoCargue: tiempo('Tiempo de cargue'),
           tiempoDescargue: tiempo('Tiempo de descargue'),
-          tipoManifiesto: optStr('Tipo de manifiesto (código o nombre); null para usar el valor por defecto'),
+          tipoManifiesto: optStr('Tipo de manifiesto (código o nombre); null para usar el valor por defecto. Si la persona dice «urbano», «municipal», «general», «multiparada», «ida y regreso» o «viaje vacío», va aquí (nunca en tipoOperacion)'),
           ordenCompra: optStr('Orden de compra; null si no la dieron'),
           observacionOrdenCargue: optStr('Observación de la orden de cargue; null si no la dieron'),
           observacionRemesa: optStr('Observación de la remesa; null si no la dieron'),
