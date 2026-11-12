@@ -47,7 +47,7 @@ export function handoffHints(text) {
 
 // Returns { skipped: 'ALREADY_MIGRATED', rndc } without pressing, or
 // { skipped: null, btn, silogStatus, ministry: { status, url, texto } | null, before }. `ministry` is null when Silogtran gave no hand-off.
-export async function sendToMinistry(client, manifiesto, { timeoutSec = 25, fetchImpl = globalThis.fetch } = {}) {
+export async function sendToMinistry(client, manifiesto, { timeoutSec = 25, fetchImpl = globalThis.fetch, textMax = 600 } = {}) {
   const before = parseRndc((await client.request(manifestPage(manifiesto), { timeoutSec })).text);
   if (before?.migrated) return { skipped: 'ALREADY_MIGRATED', rndc: before };
   let pressed;
@@ -64,8 +64,11 @@ export async function sendToMinistry(client, manifiesto, { timeoutSec = 25, fetc
   if (res.redirectTo && !target) throw new ApiError('MINISTRY_REDIRECT_UNEXPECTED', 'Silogtran redirigió a una dirección que no es el servicio del Ministerio; no la seguí.', { status: 502 });
   if (!target) return out;
   try {
+    const t0 = Date.now();
     const r = await fetchImpl(target, { method: 'GET', redirect: 'manual', headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html' }, signal: AbortSignal.timeout(timeoutSec * 1000) });
-    out.ministry = { status: r.status, url: `${MINISTRY_HOST}${MINISTRY_PATH}`, texto: tidy(await r.text()) };
+    const body = await r.text();
+    // Personal ids in the report are masked; the Ministry codes («CODIGO DEL MINISTERIO …», radicados) are kept.
+    out.ministry = { status: r.status, ms: Date.now() - t0, url: `${MINISTRY_HOST}${MINISTRY_PATH}`, bytes: body.length, texto: tidy(body, textMax).replace(/(Documento\s*:\s*)\d+/gi, '$1***') };
   } catch (e) {
     throw new ApiError('MINISTRY_UNREACHABLE', 'No pude comunicarme con el servicio del Ministerio. Intenta de nuevo en un momento.', { status: 502, detail: e?.cause?.code || e?.name });
   }

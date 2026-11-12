@@ -77,7 +77,7 @@ export default async function handler(req, res) {
       // `enviar:true` presses «Enviar Ministerio» ONCE (skipped if the manifest already has a radicado) and reports what the answer shows.
       if (req.body?.enviar === true) {
         insp.enviado = await client.enqueue(async () => {
-          const r = await sendToMinistry(client, manifiesto);
+          const r = await sendToMinistry(client, manifiesto, { textMax: 6000 });
           if (r.skipped) return { omitido: r.skipped, rndc: r.rndc };
           const reread = inspectManifest((await client.request(`index.php?page=Despacho.Manifiesto_003.Home_111&manifiesto_codigo=${encodeURIComponent(manifiesto)}`)).text);
           return { boton: r.btn, silogStatus: r.silogStatus, traspaso: r.handoff, pistas: r.hints ?? null, ministerio: r.ministry, despuesDeReleer: { numero: reread.numero, rndc: reread.rndc, mensajes: reread.mensajes } };
