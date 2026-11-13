@@ -65,10 +65,27 @@
         <option value="despachar">Despacho por IA/MCP (consulta de solicitudes; despachar vendrá después)</option>
       </select>
       <p class="muted">Cada link es independiente: sirve solo para su propósito. Una persona puede tener uno de cada uno.</p>
-      <label for="n">Nombre del usuario nuevo</label>
-      <input id="n" type="text" maxlength="80" placeholder="Ej.: Ana Pérez">
-      <label for="i">…o un usuario existente: su ID o su usuario de Silogtran (para generar un link nuevo)</label>
-      <input id="i" type="text" placeholder="Ej.: grgomez (opcional)">
+      <details class="help">
+        <summary>¿Cómo funciona? (léelo la primera vez)</summary>
+        <ol>
+          <li><b>Persona nueva:</b> escribe solo un nombre para identificarla (el que quieras) y genera el link. Aquí <b>no</b> va su usuario de Silogtran.</li>
+          <li>Envíale el link. Al abrirlo, ella escribe <b>su propio usuario y contraseña de Silogtran</b>; si son correctos, queda registrada y la app guarda su usuario de Silogtran.</li>
+          <li><b>Persona ya registrada</b> (por ejemplo, se le venció el link o necesita otro tipo de link): usa el segundo campo para generarle un link nuevo.</li>
+        </ol>
+        <p>Llena <b>un solo campo</b>: el primero para crear una persona, el segundo para alguien que ya existe.</p>
+      </details>
+      <fieldset class="opt">
+        <legend>Opción 1 · Persona nueva</legend>
+        <label for="n" title="Es solo una etiqueta para ti. El usuario de Silogtran lo escribe la propia persona al abrir su link.">Nombre de la persona nueva <span class="tipmark" aria-hidden="true">ⓘ</span></label>
+        <input id="n" type="text" maxlength="80" placeholder="Ej.: Ana Pérez">
+        <p class="muted">Solo para identificarla. Su usuario y contraseña de Silogtran los escribe ella al abrir el link.</p>
+      </fieldset>
+      <fieldset class="opt">
+        <legend>Opción 2 · Persona ya registrada (link nuevo)</legend>
+        <label for="i" title="Sirve para alguien que ya creaste antes. Escribe el nombre con que la creaste, su ID, o su usuario de Silogtran (este último solo si ya abrió un link y puso su clave).">Su nombre, su ID o su usuario de Silogtran <span class="tipmark" aria-hidden="true">ⓘ</span></label>
+        <input id="i" type="text" placeholder="Ej.: Ana Pérez o grgomez">
+        <p class="muted">Solo para alguien que ya creaste. Un usuario de Silogtran que nunca abrió su link <b>no</b> se encuentra aquí: créalo en la Opción 1.</p>
+      </fieldset>
       <div class="row"><button id="invGo" class="btn primary" type="submit">Generar link</button></div>
       <div id="invMsg" class="msg hidden" role="status"></div>
     </form>

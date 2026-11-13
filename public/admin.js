@@ -181,7 +181,10 @@ $('rndc').addEventListener('click', async () => {
 // ---- invitaciones ----
 $('invForm').addEventListener('submit', async (e) => {
   e.preventDefault(); hideMsg($('invMsg')); $('invResult').classList.add('hidden'); $('invGo').disabled = true;
-  const payload = { ...($('i').value.trim() ? { userId: $('i').value.trim() } : { nombre: $('n').value.trim() }), scope: $('sc').value };
+  const nuevo = $('n').value.trim(), existente = $('i').value.trim();
+  if (nuevo && existente) { showMsg($('invMsg'), 'warn', 'Llenaste los dos campos. Usa solo uno: la Opción 1 para crear una persona nueva, o la Opción 2 para generar un link a alguien que ya existe.'); $('invGo').disabled = false; return; }
+  if (!nuevo && !existente) { showMsg($('invMsg'), 'warn', 'Escribe el nombre de la persona nueva (Opción 1) o los datos de una persona ya registrada (Opción 2).'); $('invGo').disabled = false; return; }
+  const payload = { ...(existente ? { userId: existente } : { nombre: nuevo }), scope: $('sc').value };
   try {
     const { status, body } = await api('/api/admin/invitaciones', { method: 'POST', body: JSON.stringify(payload) });
     if (!(await guard({ status, body }))) return;

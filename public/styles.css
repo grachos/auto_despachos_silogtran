@@ -62,3 +62,11 @@ main.panel{max-width:1200px}
 a.btn{display:inline-block}
 .empty{padding:18px;color:var(--muted);text-align:center}
 .login-box{max-width:520px;margin:0 auto}
+/* Admin invitations: help block and the two exclusive options */
+.help{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0;background:var(--card, transparent)}
+.help summary{cursor:pointer;font-weight:600}
+.help ol{margin:8px 0 8px 18px;padding:0}
+.help li{margin:4px 0}
+.opt{border:1px solid var(--line);border-radius:12px;margin:14px 0;padding:6px 14px 12px}
+.opt legend{padding:0 6px;font-weight:700}
+.tipmark{color:var(--muted);cursor:help;font-weight:400}
