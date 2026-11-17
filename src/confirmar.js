@@ -11,7 +11,7 @@ import { clearPending } from './silogtran/despacho.js';
 import { addAnticipoPago, setAnticipoCero, setAnticipoValor, setBeneficiario } from './silogtran/anticipo.js';
 import { postGenerar, readRndc } from './silogtran/grabar.js';
 import { getManifestPdfUrl } from './silogtran/imprimir.js';
-import { setConfirmadoPor } from './silogtran/informacion.js';
+import { setConfirmadoPor, setObservacionDespacho } from './silogtran/informacion.js';
 
 export function parseConfirmar(body) {
   const b = body && typeof body === 'object' ? body : {};
@@ -61,7 +61,7 @@ function buildMessage(documents, rndc, { noMinistry = false } = {}) {
 
 const realDeps = {
   verifyToken, resolveActorId, assertActorActive, withLock, sessionKey, claimConfirmation, markConfirmation,
-  openActorSession, runPreparation, clearPending, setAnticipoCero, setAnticipoValor, setBeneficiario, addAnticipoPago, postGenerar, readRndc, setConfirmadoPor, getManifestPdfUrl,
+  openActorSession, runPreparation, clearPending, setAnticipoCero, setAnticipoValor, setBeneficiario, addAnticipoPago, postGenerar, readRndc, setConfirmadoPor, setObservacionDespacho, getManifestPdfUrl,
 };
 
 export async function confirmDispatch(numero, { token, anticipo, beneficiario, usuario, origen }, d = realDeps) {
@@ -114,6 +114,7 @@ async function runConfirmation(numero, { payload, uid, plan, beneficiario, orige
         if (plan.value > 0) await d.addAnticipoPago(form, plan.value, rules.bank);
       }
       d.setConfirmadoPor(form, payload.input.fuente); // re-applied last: the anticipo postbacks re-render the page
+      d.setObservacionDespacho?.(form, payload.input.observacionDespacho);
     });
 
     if (payload.input.fuente === 'empresas') {

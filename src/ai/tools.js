@@ -54,7 +54,7 @@ export const TOOLS = [
       strict: true,
       parameters: {
         type: 'object', additionalProperties: false,
-        required: ['numero', 'item', 'placa', 'citaCargue', 'citaDescargue', 'tiempoCargue', 'tiempoDescargue', 'tipoManifiesto', 'ordenCompra', 'observacionOrdenCargue', 'observacionRemesa', 'contenedor', 'bl', 'beneficiario', 'anticipo', 'fuente', 'tipoOperacion'],
+        required: ['numero', 'item', 'placa', 'citaCargue', 'citaDescargue', 'tiempoCargue', 'tiempoDescargue', 'tipoManifiesto', 'ordenCompra', 'observacionOrdenCargue', 'observacionRemesa', 'observacionDespacho', 'contenedor', 'bl', 'beneficiario', 'anticipo', 'fuente', 'tipoOperacion'],
         properties: {
           numero: str('Número de la solicitud, solo dígitos'),
           item: { type: ['integer', 'null'], description: 'Ítem de la solicitud; null si solo hay uno' },
@@ -66,7 +66,8 @@ export const TOOLS = [
           tipoManifiesto: optStr('Tipo de manifiesto (código o nombre); null para usar el valor por defecto. Si la persona dice «urbano», «municipal», «general», «multiparada», «ida y regreso» o «viaje vacío», va aquí (nunca en tipoOperacion)'),
           ordenCompra: optStr('Orden de compra; null si no la dieron'),
           observacionOrdenCargue: optStr('Observación de la orden de cargue; null si no la dieron'),
-          observacionRemesa: optStr('Observación de la remesa; null si no la dieron'),
+          observacionRemesa: optStr('Observación de la REMESA: solo si dicen «observación de la remesa» / «en la remesa». null si no la dieron'),
+          observacionDespacho: optStr('Observación del DESPACHO (texto libre de todo el despacho): «observación de despacho», «observaciones del despacho» o, si dicen solo «observaciones» / «en observaciones colocar…», va aquí. Copia el texto tal como lo dijeron, sin reescribirlo. null si no la dieron'),
           contenedor: optStr('Número de contenedor; null si no aplica'),
           bl: optStr('Número de BL; null si no aplica'),
           fuente: optStr('De dónde cargar el vehículo: "activos" (Vehículos Activos) o "empresas" (pestaña Empresas; úsalo si dicen «viaje empresa», «por empresa» o similar). null si la persona no dijo nada (se usa Vehículos Activos).'),
@@ -157,7 +158,11 @@ export function parseAnticipoReply(userText, max) {
   const short = t.split(/\s+/).length <= 6;
   const totalRe = short ? /\b(total|completo|todo)\b/ : /anticipo\s*(?:es\s*|de\s*|en\s*)?(?:el\s*)?(?:total|completo|todo)\b|\b(?:total|completo)\s+del\s+anticipo/;
   const zeroRe = short ? /\b(cero|sin anticipo|ninguno|nada)\b/ : /anticipo\s*(?:de\s*|en\s*)?(?:cero|0)\b|\bsin\s+anticipo\b|\banticipo\s+ninguno\b/;
-  if (totalRe.test(t)) out.anticipo = max;
+  // The explicit answer format «A cero» / «B total» at the START of a message (or after punctuation) counts even inside a long message
+  // that also carries observations («A CERO Y COLOCA DE OBSERVACION …»); «ero» is the usual typo of «cero».
+  const answer = /(?:^|[.,;]\s*)([ab])\s+(cero|zero|ero|total|completo)\b/.exec(t);
+  if (answer) out.anticipo = /^(cero|zero|ero)$/.test(answer[2]) ? 0 : max;
+  else if (totalRe.test(t)) out.anticipo = max;
   else if (zeroRe.test(t)) out.anticipo = 0;
   else if (nums.length === 1 && short) out.anticipo = nums[0] < 1000 && nums[0] > 0 ? nums[0] * 1000 : nums[0];
   return out;

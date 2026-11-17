@@ -4,7 +4,7 @@ import { ApiError } from '../http/errors.js';
 import { buscarSolicitud } from './solicitud.js';
 import { clearPending, pickItem, startDispatch } from './despacho.js';
 import { PradoPage } from './prado.js';
-import { fillInformacion, need, parseMoney } from './informacion.js';
+import { fillInformacion, need, parseMoney, setObservacionDespacho } from './informacion.js';
 import { addObservaciones, addContenedor } from './pestanas.js';
 
 export async function runPreparation(client, numero, input, { keepOpen = false } = {}) {
@@ -28,6 +28,7 @@ export async function runPreparation(client, numero, input, { keepOpen = false }
         tipoOperacionSolicitud: solicitud.tipoOperacion,
         tipoOperacionPedido: input.tipoOperacion ?? null,
       });
+      setObservacionDespacho(form, input.observacionDespacho); // before the tab postbacks, which send every field
       await addObservaciones(form, { numero, item: chosen.item, input });
       const contenedor = solicitud.requiereContenedor ? await addContenedor(form, { input }) : null;
 
@@ -50,6 +51,13 @@ export async function runPreparation(client, numero, input, { keepOpen = false }
         fechas: { ...info.fechas, citaCargue: input.citaCargue, citaDescargue: input.citaDescargue },
         tiempos: { cargue: input.tiempoCargue ?? { horas: 2, minutos: 0 }, descargue: input.tiempoDescargue ?? { horas: 2, minutos: 0 } },
         anticipoSugerido: anticipo,
+        // What the person asked to write (only real values, never the «NA» defaults), so the confirmation shows it.
+        observaciones: {
+          despacho: input.observacionDespacho ?? null,
+          remesa: input.observacionRemesa && input.observacionRemesa !== 'NA' ? input.observacionRemesa : null,
+          ordenCargue: input.observacionOrdenCargue && input.observacionOrdenCargue !== 'NA' ? input.observacionOrdenCargue : null,
+          ordenCompra: input.ordenCompra && input.ordenCompra !== 'NA' ? input.ordenCompra : null,
+        },
         requiereContenedor: solicitud.requiereContenedor,
         contenedor,
       };

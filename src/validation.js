@@ -77,6 +77,8 @@ export function parsePreparar(body) {
     ordenCompra: text(b.ordenCompra, 'ordenCompra', 'NA'),
     observacionOrdenCargue: text(b.observacionOrdenCargue, 'observacionOrdenCargue', 'NA'),
     observacionRemesa: text(b.observacionRemesa, 'observacionRemesa', 'NA'),
+    // Free text of the whole dispatch (field «Observacion_despacho» of the dispatch form). null = leave Silogtran's value untouched.
+    observacionDespacho: b.observacionDespacho == null ? null : text(b.observacionDespacho, 'observacionDespacho', null),
     contenedor: b.contenedor == null ? null : text(b.contenedor, 'contenedor', null),
     bl: b.bl == null ? null : text(b.bl, 'bl', null),
   };

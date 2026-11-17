@@ -41,6 +41,20 @@ export function readAfiliado(form) {
 // "Grabar" (later postbacks re-render the page). If the field is missing we fail BEFORE saving.
 export const CONFIRMADO_POR = 'ctl0$MainModule$confirmado_por';
 
+// «Observación de despacho» (ctl0$MainModule$Observacion_despacho): free text of the whole dispatch, distinct from the remesa / orden de
+// cargue observations of the "Observaciones Documentos" tab. Only written when the person gave one; applied after filling and again right
+// before "Grabar" (postbacks re-render the page). A missing field fails BEFORE saving, never silently.
+export const OBSERVACION_DESPACHO = 'ctl0$MainModule$Observacion_despacho';
+export function setObservacionDespacho(form, value) {
+  const v = String(value ?? '').trim();
+  if (!v) return null;
+  if (!(OBSERVACION_DESPACHO in form.fields)) {
+    throw new ApiError('FORM_FIELD_MISSING', 'La pantalla de Silogtran no tiene el campo «Observación de despacho».', { status: 502, detail: OBSERVACION_DESPACHO });
+  }
+  form.fields[OBSERVACION_DESPACHO] = v;
+  return v;
+}
+
 // PRADO TTabPanel: `new Prado.WebUI.TTabPanel({"ID":..., "Views":[...]})` + hidden input `<ID>_1` = active view index.
 // The browser updates it when the person clicks a tab; an HTTP client never does, so the server keeps thinking the
 // first tab ("Vehículos Activos") is active. Finds the panel whose view contains `controlName` and marks that view active.

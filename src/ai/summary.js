@@ -25,6 +25,11 @@ export function buildSummaryText(r, { footer } = {}) {
     `Cita de descargue: ${when(r.fechas.citaDescargue.fecha, r.fechas.citaDescargue.hora)}`,
     ...(r.tiempos ? [`Tiempos pactados: cargue ${span(r.tiempos.cargue)} · descargue ${span(r.tiempos.descargue)}`] : []),
   ];
+  const ob = r.observaciones ?? {};
+  if (ob.despacho) lines.push(`Observación del despacho: ${clean(ob.despacho)}`);
+  if (ob.remesa) lines.push(`Observación de la remesa: ${clean(ob.remesa)}`);
+  if (ob.ordenCargue) lines.push(`Observación de la orden de cargue: ${clean(ob.ordenCargue)}`);
+  if (ob.ordenCompra) lines.push(`Orden de compra: ${clean(ob.ordenCompra)}`);
   if (r.contenedor) lines.push(`Contenedor: ${clean(r.contenedor.numero)} · BL: ${clean(r.contenedor.bl)}`);
   if (r.eleccion) {
     // With a zero anticipo nothing is paid: the beneficiary line would only confuse.

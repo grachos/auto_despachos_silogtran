@@ -14,7 +14,7 @@ Todos requieren el header `x-api-key`. Los errores responden `{ ok:false, code, 
 | POST | `/api/solicitudes/:numero/preparar` | Llena todo el despacho **sin grabar**; devuelve resumen y un `token` (vence a los 15 min) |
 | POST | `/api/solicitudes/:numero/confirmar` | Con `{ token, anticipo: "total"\|"cero"\|<entero>, beneficiario? }` (valor parcial y beneficiario solo en vehículos externos) rehace el llenado, verifica el anticipo, **graba** y consulta el estado del RNDC |
 
-`preparar` recibe `{ placa, citaCargue{fecha,hora}, citaDescargue{fecha,hora}, tipoManifiesto?, ordenCompra?, observacionOrdenCargue?, observacionRemesa?, contenedor?, bl?, item? }`. Las citas son obligatorias; `contenedor` y `bl` lo son si la solicitud lo requiere. `tipoManifiesto` por defecto: 6 (municipal/urbano) si origen = destino, si no 1 (general).
+`preparar` recibe `{ placa, citaCargue{fecha,hora}, citaDescargue{fecha,hora}, tipoManifiesto?, ordenCompra?, observacionOrdenCargue?, observacionRemesa?, observacionDespacho?, contenedor?, bl?, item? }`. Las citas son obligatorias; `contenedor` y `bl` lo son si la solicitud lo requiere. `tipoManifiesto` por defecto: 6 (municipal/urbano) si origen = destino, si no 1 (general).
 
 ```bash
 curl -s -X POST -H "x-api-key: $API_KEY" -H "Content-Type: application/json" \
