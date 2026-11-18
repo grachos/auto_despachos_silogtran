@@ -9,7 +9,8 @@ import { withLock } from '../store/locks.js';
 import { openActorSession, sessionKey } from '../silogtran/userSession.js';
 import { readRndc } from '../silogtran/grabar.js';
 import { claimRndcNotice, saveRndc } from '../store/admin.js';
-import { sendText } from '../whatsapp/api.js';
+import { sendText, sendLinkButton } from '../whatsapp/api.js';
+import { getManifestPdfUrl } from '../silogtran/imprimir.js';
 import { resendToMinistry } from './resend.js';
 
 export const TICK_MS = 8_000; // between readings
@@ -61,6 +62,15 @@ export async function startMinistryWatch({ phone, manifiesto, jti, uid, attempt 
   }
 }
 
+// The PDF generated when the dispatch was confirmed has no QR code (there was no radicado yet) and files are static: once the radicado
+// exists a NEW one is generated (same «Imprimir Ministerio 2026» button), with the owner's own session.
+async function regeneratePdf(uid, manifiesto) {
+  return withLock(sessionKey(uid), async () => {
+    const { client } = await openActorSession(uid);
+    return client.enqueue(() => getManifestPdfUrl(client, manifiesto));
+  });
+}
+
 export const realDeps = {
   now: () => Date.now(),
   sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
@@ -70,18 +80,34 @@ export const realDeps = {
   send: sendText,
   invoke: startMinistryWatch,
   resend: resendToMinistry,
+  pdf: regeneratePdf,
+  sendLink: sendLinkButton,
 };
 
 async function notify(p, d, text) {
-  // Exactly once per dispatch, even if two invocations overlap.
-  if (p.j && !(await d.claimNotice(p.j))) return;
+  // Exactly once per dispatch, even if two invocations overlap. Returns true when this call sent the notice.
+  if (p.j && !(await d.claimNotice(p.j))) return false;
   await d.send(p.p, text);
+  return true;
+}
+
+// After the «filed» notice: a fresh PDF (it now carries the QR code) as a button. Best effort: never breaks the notice already sent.
+async function sendFreshPdf(p, d) {
+  if (!d.pdf || !d.sendLink) return;
+  try {
+    const url = await d.pdf(p.u ?? null, p.m);
+    if (url) await d.sendLink(p.p, `📄 Manifiesto ${p.m} con el código QR del Ministerio. Imprime este (el anterior se generó antes del radicado y no lo trae).`, 'Imprimir manifiesto', url);
+  } catch (e) {
+    console.error('[ministerio] fresh pdf failed:', e?.code || e?.name || 'error');
+  }
 }
 
 async function explain(p, d) {
   let r = null;
   try { r = await d.resend(p.u ?? null, p.m); } catch (e) { console.error('[ministerio] resend failed:', e?.code || e?.name || 'error'); }
-  return notify(p, d, explainText(p.m, r));
+  const withButton = r?.estado === 'RADICADO' && r.pdf && d.sendLink;
+  const sent = await notify(p, d, explainText(p.m, withButton ? { ...r, pdf: null } : r));
+  if (sent && withButton) await d.sendLink(p.p, `📄 Manifiesto ${p.m} con el código QR del Ministerio.`, 'Imprimir manifiesto', r.pdf).catch(() => d.send(p.p, `📄 Manifiesto en PDF (con el código QR): ${r.pdf}`));
 }
 
 export async function runMinistryWatch(p, d = realDeps) {
@@ -93,7 +119,8 @@ export async function runMinistryWatch(p, d = realDeps) {
     try { r = await d.readOnce(p.u ?? null, p.m); } catch { /* busy session / transient error: next tick */ }
     if (r?.migrated) {
       if (p.j) await d.saveRndc(p.j, r).catch(() => {});
-      return notify(p, d, successText(p.m, r.radicado));
+      if (await notify(p, d, successText(p.m, r.radicado))) await sendFreshPdf(p, d);
+      return;
     }
   }
   if ((p.a ?? 1) < MAX_ATTEMPTS) return d.invoke({ phone: p.p, manifiesto: p.m, jti: p.j, uid: p.u, attempt: (p.a ?? 1) + 1 });
