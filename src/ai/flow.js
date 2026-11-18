@@ -22,11 +22,13 @@ export const isBareConfirm = (t) => {
 // A bare "no" is NOT a cancel (it may answer another question of the assistant).
 export const isBareCancel = (t) => /^(cancelar|cancela|cancelalo|olvidalo)$/.test(norm(t));
 
+const SLOW_MS = 52_000;
 const T = {
   noAi: (n) => `Hola ${n} 👋 Tu cuenta está vinculada, pero el asistente conversacional aún no está habilitado. Mientras tanto puedes revisar el manual: ${process.env.PUBLIC_BASE_URL || 'https://auto-despachos-silogtran.vercel.app'}/manual`,
   noVoice: 'Por ahora no puedo escuchar notas de voz. Escríbeme el despacho, por ejemplo: «Despacha la solicitud 0101072807 con la placa KNL058».',
   limit: 'Has enviado muchos mensajes seguidos. Espera un rato e intenta de nuevo.',
   busyChat: 'Sigo con tu mensaje anterior. Dame unos segundos y vuelve a escribir.',
+  slow: 'Silogtran está tardando más de lo normal y no alcancé a terminar. Vuelve a enviarme el mensaje en un momento (si ya habías dado todos los datos, repítelos).',
   apology: 'Tuve un problema procesando tu mensaje. Intenta de nuevo en un momento.',
   cancelled: 'Listo, cancelé ese despacho. No se grabó nada.',
   voiceFail: 'No pude procesar tu nota de voz. Intenta de nuevo o escríbeme el mensaje.',
@@ -53,12 +55,20 @@ export function createFlow(d0) {
   async function safe(phone, kind, fn) {
     const t0 = Date.now();
     console.log(`[ai] start ${kind}`);
+    // Vercel kills the function at 60 s without any error path: a very slow Silogtran would leave the person in silence. Warn at 52 s.
+    const slow = setTimeout(() => {
+      console.error(`[ai] slow ${kind} after ${Date.now() - t0}ms`);
+      d.send(phone, T.slow).catch(() => {});
+    }, SLOW_MS);
+    slow.unref?.();
     try {
       await fn();
       console.log(`[ai] done ${kind} ${Date.now() - t0}ms`);
     } catch (e) {
       log(`failed ${kind} after ${Date.now() - t0}ms`, e);
       try { await d.send(phone, T.apology); } catch (e2) { log('apology not sent', e2); }
+    } finally {
+      clearTimeout(slow);
     }
   }
 

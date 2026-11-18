@@ -149,7 +149,7 @@ export function parseAnticipoReply(userText, max) {
   const t = nrm(userText).trim();
   const out = {};
   const letter = /^([ab])(?=[\s:.,)-]|$)/.exec(t) ?? /(?:^|\s)([ab])\s+(?:cero|total|completo|todo|\d)/.exec(t);
-  if (letter) out.rol = letter[1] === 'a' ? 'conductor' : 'poseedor';
+  if (letter) { out.rol = letter[1] === 'a' ? 'conductor' : 'poseedor'; out.letra = letter[1]; }
   else if (/\b(pose\w*|propie\w*|duen\w*)/.test(t)) out.rol = 'poseedor';
   else if (/\b(cond\w*|chofer|chofe\w*)/.test(t)) out.rol = 'conductor';
   const nums = spanishNumbers(String(userText).replace(/\b0\d{5,}\b/g, ' ')); // request numbers (01…) are not amounts
@@ -169,8 +169,11 @@ export function parseAnticipoReply(userText, max) {
 }
 
 // Deterministic question for externals (the model used to ask without the maximum, costing extra turns).
-export function askExternalText(max, prefix = '') {
-  return `${prefix}Vehículo externo. *Anticipo total = ${pesos(max)}*\n\n¿A quién va el anticipo?\n*A* = conductor\n*B* = poseedor\n\nResponde con la letra y el valor. Ej.: A cero · B 500 mil · B total`;
+export function askExternalText(max, prefix = '', options = null) {
+  // `options` (the real list of Silogtran) is used when its texts do not say who is the driver / the owner: A and B are then the
+  // first and second entries, shown by name so the person knows who gets the money.
+  const who = options?.length ? options.slice(0, 2).map((o, i) => `*${'AB'[i]}* = ${String(o.texto ?? '').replace(/[*_~`]/g, '').slice(0, 60)}`).join('\n') : '*A* = conductor\n*B* = poseedor';
+  return `${prefix}Vehículo externo. *Anticipo total = ${pesos(max)}*\n\n¿A quién va el anticipo?\n${who}\n\nResponde con la letra y el valor. Ej.: A cero · B 500 mil · B total`;
 }
 
 export function chooseExternal(resumen, args, userText) {
@@ -179,17 +182,22 @@ export function chooseExternal(resumen, args, userText) {
     return { note: asked ? 'Vehículo interno: el beneficiario es el conductor y el anticipo solo puede ser total o cero (se elige con los botones). Ignoré el beneficiario y el valor pedidos.' : null };
   }
   const max = resumen.anticipoSugerido;
-  const opts = (resumen.beneficiarios ?? []).filter((o) => o.rol === 'conductor' || o.rol === 'poseedor');
+  const all = resumen.beneficiarios ?? [];
+  const opts = all.filter((o) => o.rol === 'conductor' || o.rol === 'poseedor');
+  // Silogtran's option texts do not always say «conductor» / «poseedor»: then A / B mean the first / second entry of the list.
+  const roleless = all.length > 0 && !(opts.some((o) => o.rol === 'conductor') && opts.some((o) => o.rol === 'poseedor'));
+  if (all.length === 0 || roleless) console.log(`[ai] externo beneficiarios: total=${all.length} roles=${all.map((o) => o.rol).join(',')}`);
   const said0 = userText !== undefined ? parseAnticipoReply(userText, max) : {};
   if (said0.rol || said0.anticipo !== undefined) args = { ...args, beneficiario: said0.rol ?? args.beneficiario, anticipo: said0.anticipo ?? args.anticipo };
   const role = String(args.beneficiario ?? '').trim().toLowerCase();
   let ben = opts.find((o) => o.rol === role);
+  if (!ben && roleless && said0.letra) ben = all['ab'.indexOf(said0.letra)] ?? null;
   // Zero anticipo: nothing is paid, so who receives it is irrelevant. Do NOT ask: keep the driver (Silogtran's own default) when the
   // person said «cero» in this message (or no message text is available, e.g. API use).
   let defaulted = false;
   if (!ben && args.anticipo === 0) {
     const stated = userText === undefined || said0.anticipo === 0 || statedInMessage(userText, { rol: 'conductor', anticipo: 0, max }).valueOk;
-    const driver = opts.find((o) => o.rol === 'conductor') ?? opts.find((o) => o.seleccionado);
+    const driver = opts.find((o) => o.rol === 'conductor') ?? all.find((o) => o.seleccionado) ?? all[0];
     if (stated && driver) { ben = driver; defaulted = true; }
   }
   const view = { afiliado: 'EXTERNO', beneficiariosDisponibles: opts.map((o) => o.rol), anticipoMaximo: max };
@@ -200,9 +208,10 @@ export function chooseExternal(resumen, args, userText) {
     if (!said.roleOk && !said0.rol && !defaulted) falta.push('beneficiario');
     if (!said.valueOk && said0.anticipo === undefined) falta.push('anticipo');
   }
-  if (falta.length) return { reply: askExternalText(max), ask: { ok: true, preparado: false, ...view, falta, instruccion: 'Vehículo EXTERNO: pregunta a la persona lo que falta (a quién va el anticipo y cuánto, de 0 a anticipoMaximo) y vuelve a llamar a preparar_despacho con los mismos datos. No supongas.' } };
+  const askOpts = roleless ? all : null;
+  if (falta.length) return { reply: askExternalText(max, '', askOpts), ask: { ok: true, preparado: false, ...view, falta, instruccion: 'Vehículo EXTERNO: pregunta a la persona lo que falta (a quién va el anticipo y cuánto, de 0 a anticipoMaximo) y vuelve a llamar a preparar_despacho con los mismos datos. No supongas.' } };
   if (!Number.isSafeInteger(args.anticipo) || args.anticipo < 0 || args.anticipo > max) {
-    return { reply: askExternalText(max, `Ese valor supera el máximo (${pesos(max)}).\n\n`), ask: { ok: false, preparado: false, code: 'ANTICIPO_EXCEEDS', ...view, message: `El anticipo debe estar entre 0 y ${max} pesos.` } };
+    return { reply: askExternalText(max, `Ese valor supera el máximo (${pesos(max)}).\n\n`, askOpts), ask: { ok: false, preparado: false, code: 'ANTICIPO_EXCEEDS', ...view, message: `El anticipo debe estar entre 0 y ${max} pesos.` } };
   }
   return { eleccion: { beneficiario: { id: ben.id, rol: ben.rol, texto: ben.texto }, anticipo: args.anticipo } };
 }
