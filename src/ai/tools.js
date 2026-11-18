@@ -170,6 +170,11 @@ export function parseAnticipoReply(userText, max) {
 
 // Deterministic question for externals (the model used to ask without the maximum, costing extra turns).
 export function askExternalText(max, prefix = '', options = null) {
+  // A single beneficiary (e.g. the same person is owner and driver): there is nothing to choose, only the amount is asked.
+  if (options?.length === 1) {
+    const name = String(options[0].texto ?? '').replace(/[*_~`]/g, '').slice(0, 80);
+    return `${prefix}Vehículo externo. *Anticipo total = ${pesos(max)}*\n\nEl anticipo va a *${name}* (único beneficiario).\n\n¿Cuánto? Ej.: cero · 500 mil · total`;
+  }
   // `options` (the real list of Silogtran) is used when its texts do not say who is the driver / the owner: A and B are then the
   // first and second entries, shown by name so the person knows who gets the money.
   const who = options?.length ? options.slice(0, 2).map((o, i) => `*${'AB'[i]}* = ${String(o.texto ?? '').replace(/[*_~`]/g, '').slice(0, 60)}`).join('\n') : '*A* = conductor\n*B* = poseedor';
@@ -183,21 +188,25 @@ export function chooseExternal(resumen, args, userText) {
   }
   const max = resumen.anticipoSugerido;
   const all = resumen.beneficiarios ?? [];
-  const opts = all.filter((o) => o.rol === 'conductor' || o.rol === 'poseedor');
+  const canDrive = (o) => o.rol === 'conductor' || o.rol === 'ambos';
+  const canOwn = (o) => o.rol === 'poseedor' || o.rol === 'ambos';
+  const opts = all.filter((o) => canDrive(o) || canOwn(o));
   // Silogtran's option texts do not always say «conductor» / «poseedor»: then A / B mean the first / second entry of the list.
-  const roleless = all.length > 0 && !(opts.some((o) => o.rol === 'conductor') && opts.some((o) => o.rol === 'poseedor'));
-  if (all.length === 0 || roleless) console.log(`[ai] externo beneficiarios: total=${all.length} roles=${all.map((o) => o.rol).join(',')}`);
+  const single = all.length === 1; // one beneficiary only: no question about who
+  const roleless = all.length > 0 && !single && !(opts.some(canDrive) && opts.some(canOwn));
+  if (all.length === 0 || roleless || single) console.log(`[ai] externo beneficiarios: total=${all.length} roles=${all.map((o) => o.rol).join(',')}`);
   const said0 = userText !== undefined ? parseAnticipoReply(userText, max) : {};
   if (said0.rol || said0.anticipo !== undefined) args = { ...args, beneficiario: said0.rol ?? args.beneficiario, anticipo: said0.anticipo ?? args.anticipo };
   const role = String(args.beneficiario ?? '').trim().toLowerCase();
-  let ben = opts.find((o) => o.rol === role);
+  // Exact role first; the person who is both owner and driver («ambos») serves either role when no exact entry exists.
+  let ben = single ? all[0] : opts.find((o) => o.rol === role) ?? opts.find((o) => o.rol === 'ambos' && (role === 'conductor' || role === 'poseedor'));
   if (!ben && roleless && said0.letra) ben = all['ab'.indexOf(said0.letra)] ?? null;
   // Zero anticipo: nothing is paid, so who receives it is irrelevant. Do NOT ask: keep the driver (Silogtran's own default) when the
   // person said «cero» in this message (or no message text is available, e.g. API use).
-  let defaulted = false;
+  let defaulted = single;
   if (!ben && args.anticipo === 0) {
     const stated = userText === undefined || said0.anticipo === 0 || statedInMessage(userText, { rol: 'conductor', anticipo: 0, max }).valueOk;
-    const driver = opts.find((o) => o.rol === 'conductor') ?? all.find((o) => o.seleccionado) ?? all[0];
+    const driver = opts.find(canDrive) ?? all.find((o) => o.seleccionado) ?? all[0];
     if (stated && driver) { ben = driver; defaulted = true; }
   }
   const view = { afiliado: 'EXTERNO', beneficiariosDisponibles: opts.map((o) => o.rol), anticipoMaximo: max };
@@ -208,7 +217,7 @@ export function chooseExternal(resumen, args, userText) {
     if (!said.roleOk && !said0.rol && !defaulted) falta.push('beneficiario');
     if (!said.valueOk && said0.anticipo === undefined) falta.push('anticipo');
   }
-  const askOpts = roleless ? all : null;
+  const askOpts = roleless || single ? all : null;
   if (falta.length) return { reply: askExternalText(max, '', askOpts), ask: { ok: true, preparado: false, ...view, falta, instruccion: 'Vehículo EXTERNO: pregunta a la persona lo que falta (a quién va el anticipo y cuánto, de 0 a anticipoMaximo) y vuelve a llamar a preparar_despacho con los mismos datos. No supongas.' } };
   if (!Number.isSafeInteger(args.anticipo) || args.anticipo < 0 || args.anticipo > max) {
     return { reply: askExternalText(max, `Ese valor supera el máximo (${pesos(max)}).\n\n`, askOpts), ask: { ok: false, preparado: false, code: 'ANTICIPO_EXCEEDS', ...view, message: `El anticipo debe estar entre 0 y ${max} pesos.` } };

@@ -46,7 +46,7 @@ export function applyRules(summary, { beneficiario, mode }) {
     }
     return { bank: 'terceros', beneficiario };
   }
-  if (beneficiario && options.find((o) => o.id === beneficiario)?.rol !== 'conductor') {
+  if (beneficiario && !['conductor', 'ambos'].includes(options.find((o) => o.id === beneficiario)?.rol)) {
     throw new ApiError('BENEFICIARY_INVALID', 'En un vehículo interno el beneficiario siempre es el conductor.', { status: 400 });
   }
   if (mode === 'valor') throw new ApiError('ANTICIPO_NOT_ALLOWED', 'En un vehículo interno el anticipo solo puede ser total o cero.', { status: 400 });

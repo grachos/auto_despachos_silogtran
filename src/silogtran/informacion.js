@@ -26,7 +26,12 @@ export function readAfiliado(form) {
     .toArray()
     .map((o) => ({ id: (o.attribs.value ?? '').trim(), texto: $(o).text().replace(/\s+/g, ' ').trim(), seleccionado: o.attribs.selected !== undefined }))
     .filter((o) => o.id !== '')
-    .map((o) => ({ ...o, rol: /POSEEDOR|PROPIETARIO/i.test(o.texto) ? 'poseedor' : /CONDUCTOR/i.test(o.texto) ? 'conductor' : 'otro' }));
+    // One person can be owner AND driver («NOMBRE- POSEEDOR_CONDUCTOR»): role 'ambos' (both).
+    .map((o) => {
+      const owner = /POSEEDOR|PROPIETARIO/i.test(o.texto);
+      const driver = /CONDUCTOR/i.test(o.texto);
+      return { ...o, rol: owner && driver ? 'ambos' : owner ? 'poseedor' : driver ? 'conductor' : 'otro' };
+    });
   const op = $('select[name="ctl0$MainModule$tipo_operacion"] option[selected]');
   return {
     tipoAfiliado: AFILIADO[code] ?? null,
