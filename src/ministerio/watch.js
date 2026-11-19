@@ -17,6 +17,9 @@ export const TICK_MS = 8_000; // between readings
 export const BUDGET_MS = 48_000; // per invocation (Vercel kills the function at 60 s)
 export const MAX_ATTEMPTS = 2; // reading invocations, ~100 s in total; then one more invocation explains the failure (EXPLAIN_ATTEMPT)
 export const EXPLAIN_ATTEMPT = MAX_ATTEMPTS + 1;
+// The fresh PDF (with the QR code) is made in ITS OWN invocation: when the radicado shows up late in a reading invocation (e.g. 40 s in)
+// the print button (10-20 s) did not fit in Vercel's 60 s and the function was killed silently (manifest 0101228253, 2026-11-19).
+export const PDF_STEP = 'pdf';
 
 const baseUrl = () => process.env.PUBLIC_BASE_URL || 'https://auto-despachos-silogtran.vercel.app';
 
@@ -50,9 +53,9 @@ async function readOnce(uid, manifiesto) {
 }
 
 // Asks the internal endpoint (a fresh invocation with its own 60 s) to start/continue a watch. Never throws.
-export async function startMinistryWatch({ phone, manifiesto, jti, uid, attempt = 1 }) {
+export async function startMinistryWatch({ phone, manifiesto, jti, uid, attempt = 1, step = null }) {
   try {
-    const t = signToken({ m: manifiesto, j: jti ?? null, u: uid ?? null, p: phone, a: attempt }, 300, 'rndc-watch');
+    const t = signToken({ m: manifiesto, j: jti ?? null, u: uid ?? null, p: phone, a: attempt, ...(step ? { k: step } : {}) }, 300, 'rndc-watch');
     const res = await fetch(`${baseUrl()}/api/internal/ministerio`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ t }), signal: AbortSignal.timeout(8_000),
     });
@@ -96,6 +99,7 @@ async function sendFreshPdf(p, d) {
   if (!d.pdf || !d.sendLink) return;
   try {
     const url = await d.pdf(p.u ?? null, p.m);
+    console.log(`[ministerio] fresh pdf: ${url ? 'sent' : 'no link'}`);
     if (url) await d.sendLink(p.p, `📄 Manifiesto ${p.m} con el código QR del Ministerio. Imprime este (el anterior se generó antes del radicado y no lo trae).`, 'Imprimir manifiesto', url);
   } catch (e) {
     console.error('[ministerio] fresh pdf failed:', e?.code || e?.name || 'error');
@@ -111,6 +115,7 @@ async function explain(p, d) {
 }
 
 export async function runMinistryWatch(p, d = realDeps) {
+  if (p.k === PDF_STEP) return sendFreshPdf(p, d);
   if ((p.a ?? 1) >= EXPLAIN_ATTEMPT) return explain(p, d);
   const start = d.now();
   while (d.now() - start + TICK_MS < BUDGET_MS) {
@@ -119,7 +124,9 @@ export async function runMinistryWatch(p, d = realDeps) {
     try { r = await d.readOnce(p.u ?? null, p.m); } catch { /* busy session / transient error: next tick */ }
     if (r?.migrated) {
       if (p.j) await d.saveRndc(p.j, r).catch(() => {});
-      if (await notify(p, d, successText(p.m, r.radicado))) await sendFreshPdf(p, d);
+      if ((await notify(p, d, successText(p.m, r.radicado))) && d.pdf) {
+        await d.invoke({ phone: p.p, manifiesto: p.m, jti: p.j, uid: p.u, attempt: p.a ?? 1, step: PDF_STEP });
+      }
       return;
     }
   }
