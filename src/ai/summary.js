@@ -23,6 +23,7 @@ export function buildSummaryText(r, { footer } = {}) {
     ...(r.tipoOperacion?.nombre ? [`Tipo de operación: ${clean(r.tipoOperacion.nombre)}`] : []),
     `Cita de cargue: ${when(r.fechas.citaCargue.fecha, r.fechas.citaCargue.hora)}`,
     `Cita de descargue: ${when(r.fechas.citaDescargue.fecha, r.fechas.citaDescargue.hora)}`,
+    ...(r.pesoKilos ? [`Peso: ${Number(r.pesoKilos).toLocaleString('es-CO')} kg`] : []),
     ...(r.tiempos ? [`Tiempos pactados: cargue ${span(r.tiempos.cargue)} · descargue ${span(r.tiempos.descargue)}`] : []),
   ];
   const ob = r.observaciones ?? {};

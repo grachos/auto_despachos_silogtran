@@ -49,6 +49,16 @@ export const CONFIRMADO_POR = 'ctl0$MainModule$confirmado_por';
 // «Observación de despacho» (ctl0$MainModule$Observacion_despacho): free text of the whole dispatch, distinct from the remesa / orden de
 // cargue observations of the "Observaciones Documentos" tab. Only written when the person gave one; applied after filling and again right
 // before "Grabar" (postbacks re-render the page). A missing field fails BEFORE saving, never silently.
+// «Peso Manifiesto (Kilos)» of the dispatch form (read-only for the summary). The field name was never captured: look for a field whose
+// name mentions «peso», preferring the manifest one. Returns kilos as a number, or null. Logs only field NAMES (never values).
+export function readPesoManifiesto(form) {
+  const names = Object.keys(form.fields ?? {}).filter((k) => /peso/i.test(k) && !/IDLockHidden/i.test(k));
+  const pick = names.find((k) => /peso_?manifiesto/i.test(k)) ?? names.find((k) => /\$peso(_?kilos)?$/i.test(k)) ?? names.find((k) => parseMoney(form.fields[k]) != null);
+  if (!pick) console.log(`[preparar] peso: no field (candidates: ${names.map((n) => n.replace('ctl0$MainModule$', '')).join(',') || 'none'})`);
+  const n = pick ? parseMoney(form.fields[pick]) : null;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export const OBSERVACION_DESPACHO = 'ctl0$MainModule$Observacion_despacho';
 export function setObservacionDespacho(form, value) {
   const v = String(value ?? '').trim();

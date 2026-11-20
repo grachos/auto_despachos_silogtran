@@ -4,7 +4,7 @@ import { ApiError } from '../http/errors.js';
 import { buscarSolicitud } from './solicitud.js';
 import { clearPending, pickItem, startDispatch } from './despacho.js';
 import { PradoPage } from './prado.js';
-import { fillInformacion, need, parseMoney, setObservacionDespacho } from './informacion.js';
+import { fillInformacion, need, parseMoney, setObservacionDespacho, readPesoManifiesto } from './informacion.js';
 import { addObservaciones, addContenedor } from './pestanas.js';
 
 export async function runPreparation(client, numero, input, { keepOpen = false } = {}) {
@@ -50,6 +50,8 @@ export async function runPreparation(client, numero, input, { keepOpen = false }
         tipoManifiesto: info.tipoManifiesto,
         fechas: { ...info.fechas, citaCargue: input.citaCargue, citaDescargue: input.citaDescargue },
         tiempos: { cargue: input.tiempoCargue ?? { horas: 2, minutos: 0 }, descargue: input.tiempoDescargue ?? { horas: 2, minutos: 0 } },
+        // Weight: the manifest's own field first (what will be saved); the request's item weight as fallback.
+        pesoKilos: readPesoManifiesto(form) ?? parseMoney(chosen.peso),
         anticipoSugerido: anticipo,
         // What the person asked to write (only real values, never the «NA» defaults), so the confirmation shows it.
         observaciones: {

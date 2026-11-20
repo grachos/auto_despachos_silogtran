@@ -62,6 +62,7 @@ export function parseSolicitud(html, numero) {
         destinatario: get('destinatario'),
         destino: get('ciudad destino'),
         producto: get('producto'),
+        peso: get('peso') || get('peso (kilos)') || get('peso kilos') || null,
         vehiculos,
         vehiculosDespachados: despachados,
         pendientes: Math.max(vehiculos - despachados, 0),
