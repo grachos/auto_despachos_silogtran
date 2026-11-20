@@ -51,12 +51,27 @@ export const CONFIRMADO_POR = 'ctl0$MainModule$confirmado_por';
 // before "Grabar" (postbacks re-render the page). A missing field fails BEFORE saving, never silently.
 // «Peso Manifiesto (Kilos)» of the dispatch form (read-only for the summary). The field name was never captured: look for a field whose
 // name mentions «peso», preferring the manifest one. Returns kilos as a number, or null. Logs only field NAMES (never values).
-export function readPesoManifiesto(form) {
-  const names = Object.keys(form.fields ?? {}).filter((k) => /peso/i.test(k) && !/IDLockHidden/i.test(k));
-  const pick = names.find((k) => /peso_?manifiesto/i.test(k)) ?? names.find((k) => /\$peso(_?kilos)?$/i.test(k)) ?? names.find((k) => parseMoney(form.fields[k]) != null);
-  if (!pick) console.log(`[preparar] peso: no field (candidates: ${names.map((n) => n.replace('ctl0$MainModule$', '')).join(',') || 'none'})`);
-  const n = pick ? parseMoney(form.fields[pick]) : null;
+// «Peso Manifiesto (Kilos)» of the dispatch form. Real field (seen by the owner): ctl0$MainModule$porConfirmar$ctl0$Peso.
+export const PESO_FIELD = 'ctl0$MainModule$porConfirmar$ctl0$Peso';
+
+// Weight text → number: «9000», «9000.00», «9.000», «9.000,50», «9,000.5».
+export function parseWeight(s) {
+  const t = String(s ?? '').replace(/\s/g, '');
+  if (!t) return null;
+  let n;
+  if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) n = Number(t.replace(/\./g, '').replace(',', '.'));
+  else if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(t)) n = Number(t.replace(/,/g, ''));
+  else n = Number(t.replace(',', '.'));
   return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+export function readPesoManifiesto(form) {
+  const fields = form.fields ?? {};
+  if (PESO_FIELD in fields) return parseWeight(fields[PESO_FIELD]);
+  const names = Object.keys(fields).filter((k) => /peso/i.test(k) && !/IDLockHidden/i.test(k));
+  const pick = names.find((k) => /\$peso$/i.test(k)) ?? names.find((k) => /peso_?manifiesto/i.test(k));
+  if (!pick) console.log(`[preparar] peso: no field (candidates: ${names.map((n) => n.replace('ctl0$MainModule$', '')).join(',') || 'none'})`);
+  return pick ? parseWeight(fields[pick]) : null;
 }
 
 export const OBSERVACION_DESPACHO = 'ctl0$MainModule$Observacion_despacho';
