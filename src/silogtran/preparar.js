@@ -37,7 +37,7 @@ export async function runPreparation(client, numero, input, { keepOpen = false }
       if (anticipo === null) throw new ApiError('ANTICIPO_NOT_CALCULATED', 'Silogtran no calculó el anticipo.', { status: 502 });
 
       const summary = {
-        solicitud: { numero, item: chosen.item, origen: chosen.origen, destino: chosen.destino },
+        solicitud: { numero, item: chosen.item, origen: chosen.origen, destino: chosen.destino, remitente: chosen.remitente || null, destinatario: chosen.destinatario || null },
         vehiculo: { placa: info.vehiculo.placa, clase: info.vehiculo.clase, carroceria: info.vehiculo.carroceria },
         tipoAfiliado: info.vehiculo.tipoAfiliado,
         beneficiarios: info.vehiculo.beneficiarios,
