@@ -39,6 +39,7 @@ export async function createCode(userId) {
   throw new ApiError('CODE_GENERATION_FAILED', 'No se pudo generar un código; intenta de nuevo.', { status: 500 });
 }
 
-export async function getLink(userId) {
-  return run(supabase().from('vinculos_whatsapp').select('phone, linked_at').eq('user_id', userId).maybeSingle());
+// All the phones linked to the user (oldest first).
+export async function getLinks(userId) {
+  return run(supabase().from('vinculos_whatsapp').select('phone, linked_at').eq('user_id', userId).order('linked_at'));
 }

@@ -5,7 +5,7 @@
 import { ApiError } from '../http/errors.js';
 import { openSession } from './session.js';
 import { findUserByRef, getUser, getCredentials, flipNeedsRelink } from '../store/usuarios.js';
-import { getPhoneByUser } from '../store/whatsapp.js';
+import { getPhonesByUser } from '../store/whatsapp.js';
 import { sendText } from '../whatsapp/api.js';
 
 export const RELINK_TEXT =
@@ -16,8 +16,9 @@ export const sessionKey = (userId) => userId ?? 'default';
 // Best effort: Meta only allows free-form text inside the 24 h window, so this can legitimately fail.
 export async function notifyRelink(userId) {
   try {
-    const phone = await getPhoneByUser(userId);
-    if (phone) await sendText(phone, RELINK_TEXT);
+    for (const phone of await getPhonesByUser(userId)) {
+      try { await sendText(phone, RELINK_TEXT); } catch (e) { console.error('[relink-notify] not sent:', e?.code || 'error'); }
+    }
   } catch (e) {
     console.error('[relink-notify] not sent:', e?.code || 'error');
   }

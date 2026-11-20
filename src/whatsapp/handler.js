@@ -7,8 +7,8 @@ import { MAX_FAILED_PER_HOUR } from '../store/whatsapp.js';
 const base = () => process.env.PUBLIC_BASE_URL || 'https://auto-despachos-silogtran.vercel.app';
 
 const T = {
-  welcome: (n) => `✅ ¡Listo, ${n}! Tu WhatsApp quedó vinculado.\n\nAquí está el manual con todo lo que necesitas para despachar:\n${base()}/manual\n\nEscribe AYUDA cuando lo necesites o DESVINCULAR para quitar este número.`,
-  help: `Soy el asistente de despachos de Silogtran.\n\nEscríbeme o envíame una nota de voz con el despacho, por ejemplo: «Despacha la solicitud 0101072807 con la placa KNL058, cargue el 8 a las 2 pm y descargue el 10 a las 4 pm». Te pediré lo que falte y, antes de grabar, te mostraré un resumen con botones para confirmar.\n\n• AYUDA: este mensaje\n• DESVINCULAR: quita este número de tu cuenta\n\nManual de despachos:\n${base()}/manual`,
+  welcome: (n) => `✅ ¡Listo, ${n}! Este número de WhatsApp quedó vinculado.\n\nAquí está el manual con todo lo que necesitas para despachar:\n${base()}/manual\n\nEscribe AYUDA cuando lo necesites o DESVINCULAR para quitar este número.`,
+  help: `Soy el asistente de despachos de Silogtran.\n\nEscríbeme o envíame una nota de voz con el despacho, por ejemplo: «Despacha la solicitud 0101072807 con la placa KNL058, cargue el 8 a las 2 pm y descargue el 10 a las 4 pm». Te pediré lo que falte y, antes de grabar, te mostraré un resumen con botones para confirmar.\n\n• AYUDA: este mensaje\n• DESVINCULAR: quita este número de tu cuenta (puedes vincular hasta 2 números)\n\nManual de despachos:\n${base()}/manual`,
   unlinked: `Hola 👋 Este número aún no está vinculado a una cuenta de despachos.\n\nEntra con tu link de acceso, pulsa "Vincular teléfono" y envíame el código que te muestre (por ejemplo: VINCULAR 123456).\n\nManual:\n${base()}/manual`,
   linkedSoon: (n) => `Hola ${n} 👋 Tu cuenta está vinculada. El asistente conversacional de despachos estará disponible muy pronto.\n\nMientras tanto puedes revisar el manual:\n${base()}/manual`,
   badCode: 'Ese código no es válido o ya venció. Genera uno nuevo en la página de vinculación y envíalo de nuevo.',
@@ -17,6 +17,7 @@ const T = {
   inactive: 'Tu cuenta no está activa. Pide un link nuevo al administrador.',
   relink: 'Tu usuario o contraseña de Silogtran ya no son válidos. Pide un link nuevo al administrador y vuelve a ingresar para poder despachar.',
   unlinkedOk: 'Listo, desvinculé este número. Para volver a usar el asistente, vincúlalo de nuevo desde la página de vinculación.',
+  phoneLimit: 'Tu cuenta ya tiene 2 números vinculados (el máximo). Para vincular este, desvincula antes uno de los otros: escribe DESVINCULAR desde ese número. Si ya no tienes acceso a él, pídele al administrador que lo quite. El código que usaste ya no sirve; genera uno nuevo cuando quedes con un cupo libre.',
   notLinked: 'Este número no estaba vinculado a ninguna cuenta.',
   textOnly: 'Por ahora entiendo mensajes de texto y notas de voz.',
 };
@@ -55,7 +56,8 @@ export async function handleMessage(msg, deps) {
       }
       const user = await getUser(userId);
       if (!user || user.status !== 'ACTIVE') return void (await reply(user?.status === 'NEEDS_RELINK' ? T.relink : T.inactive)), 'inactive';
-      await store.linkPhone(userId, msg.from);
+      const r = await store.linkPhone(userId, msg.from);
+      if (r && r.ok === false) return void (await reply(T.phoneLimit)), 'phone-limit';
       await reply(T.welcome(user.nombre));
       return 'linked';
     }

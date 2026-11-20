@@ -16,14 +16,15 @@ export async function listUsers() {
     run(db.from('vinculos_whatsapp').select('user_id, phone, linked_at')),
     run(db.from('silog_confirmaciones').select('user_id, status, created_at').not('user_id', 'is', null).limit(5000)),
   ]);
-  const link = new Map(links.map((l) => [l.user_id, l]));
+  const link = new Map();
+  for (const l of [...links].sort((a, b) => String(a.linked_at).localeCompare(String(b.linked_at)))) link.set(l.user_id, [...(link.get(l.user_id) ?? []), l]);
   return users.map((u) => {
     const mine = disp.filter((d) => d.user_id === u.id);
     const last = mine.reduce((m, d) => (d.created_at > m ? d.created_at : m), '');
-    const l = link.get(u.id);
+    const ls = link.get(u.id) ?? [];
     return {
       id: u.id, nombre: u.nombre, silogUser: u.silog_user, estado: u.relink_required ? 'NEEDS_RELINK' : u.status, creadoEn: u.created_at,
-      whatsapp: l ? 'VINCULADO' : 'DESVINCULADO', telefono: maskPhone(l?.phone), vinculadoDesde: l?.linked_at ?? null,
+      whatsapp: ls.length ? 'VINCULADO' : 'DESVINCULADO', telefono: ls.map((x) => maskPhone(x.phone)).join(', ') || null, telefonos: ls.length, vinculadoDesde: ls[0]?.linked_at ?? null,
       despachos: mine.filter((d) => d.status === 'DONE').length, ultimoDespacho: last || null,
     };
   });

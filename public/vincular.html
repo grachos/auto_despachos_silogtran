@@ -6,8 +6,11 @@
 <p id="intro" class="muted">Vincula tu número para despachar por WhatsApp.</p>
 
 <div id="linked" class="msg ok hidden">
-  <div>✅ Tu WhatsApp <strong id="phone"></strong> está vinculado desde <span id="since"></span>.</div>
+  <div>✅ <span id="title">Tu WhatsApp está vinculado</span>:</div>
+  <ul id="phones"></ul>
   <p class="muted">Ya puedes escribirle al bot: <strong class="botnum"></strong>. Por WhatsApp puedes escribir <b>AYUDA</b> o <b>DESVINCULAR</b>. <a href="/manual">Ver el manual</a>.</p>
+  <p id="addinfo" class="muted hidden">Puedes vincular hasta <b>2 números</b> (por ejemplo, dos teléfonos).</p>
+  <div class="row"><button id="addphone" class="btn hidden" type="button">Vincular otro número</button></div>
 </div>
 
 <div id="start" class="card hidden">

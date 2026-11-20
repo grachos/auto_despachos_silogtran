@@ -35,12 +35,17 @@ export async function consumeCode(code) {
   return rows.length === 1 ? rows[0].user_id : null;
 }
 
-// Last link wins: a phone belongs to one account and an account to one phone.
+// A person may link up to MAX_PHONES_PER_USER numbers. A phone belongs to ONE account (last link wins for the phone).
+// Returns { ok:true } or { ok:false, reason:'LIMIT' } when the user already has the maximum with other numbers
+// (nothing is removed silently: the person must unlink one first).
+export const MAX_PHONES_PER_USER = 2;
 export async function linkPhone(userId, phone) {
   const db = supabase();
-  await run(db.from('vinculos_whatsapp').delete().eq('phone', phone));
-  await run(db.from('vinculos_whatsapp').delete().eq('user_id', userId));
+  await run(db.from('vinculos_whatsapp').delete().eq('phone', phone)); // re-linking the same phone never counts twice
+  const mine = await run(db.from('vinculos_whatsapp').select('phone').eq('user_id', userId));
+  if (mine.length >= MAX_PHONES_PER_USER) return { ok: false, reason: 'LIMIT' };
   await run(db.from('vinculos_whatsapp').insert({ user_id: userId, phone }));
+  return { ok: true };
 }
 
 export async function unlinkPhone(phone) {
@@ -54,7 +59,7 @@ export async function failedAttempts(phone) {
 }
 export const recordFail = (phone) => run(supabase().from('whatsapp_intentos').insert({ phone }));
 
-export async function getPhoneByUser(userId) {
-  const row = await run(supabase().from('vinculos_whatsapp').select('phone').eq('user_id', userId).maybeSingle());
-  return row?.phone ?? null;
+export async function getPhonesByUser(userId) {
+  const rows = await run(supabase().from('vinculos_whatsapp').select('phone').eq('user_id', userId).order('linked_at'));
+  return rows.map((r) => r.phone);
 }

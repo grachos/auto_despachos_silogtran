@@ -15,7 +15,6 @@ export function buildSummaryText(r, { footer } = {}) {
     `Solicitud: ${clean(r.solicitud.numero)} (ítem ${clean(r.solicitud.item)}) · ${clean(r.solicitud.origen)} → ${clean(r.solicitud.destino)}`,
     `Vehículo: ${clean(r.vehiculo.placa)} · ${clean(r.vehiculo.clase)} · ${clean(r.vehiculo.carroceria)}`,
     ...(r.tipoAfiliado ? [`Afiliado: ${clean(r.tipoAfiliado)}`] : []),
-    `Cargado por: ${fuenteLabel(r.fuente)}`,
     `Remolque: ${clean(r.trailer)}`,
     `Conductor: ${clean(r.conductor)}`,
     `Ruta: ${clean(r.ruta)}`,
@@ -38,7 +37,6 @@ export function buildSummaryText(r, { footer } = {}) {
     // With a zero anticipo nothing is paid: the beneficiary line would only confuse.
     if (r.eleccion.anticipo > 0) lines.push(`Beneficiario del anticipo: ${clean(r.eleccion.beneficiario.texto)}`);
     lines.push(`Anticipo a entregar: ${money(r.eleccion.anticipo)}`);
-    if (r.eleccion.anticipo > 0) lines.push('Banco: BANCOLOMBIA TERCEROS');
   } else lines.push(`Anticipo sugerido: ${money(r.anticipoSugerido)}`);
   lines.push('', footer ?? 'Revisa que todo esté bien y elige una opción. No se graba nada hasta que pulses un botón de confirmar.');
   return lines.join('\n');
@@ -66,9 +64,9 @@ export function resultText(r, resumen, { withLink = true } = {}) {
   const d = r.documents ?? {};
   const lines = [r.repeated ? 'ℹ️ Este despacho ya estaba confirmado.' : '✅ ¡Despacho confirmado!', `Orden de cargue: ${d.ordenCargue ?? '—'}`, `Remesa: ${d.remesa ?? '—'}`, `Manifiesto: ${d.manifiesto ?? '—'}`];
   if (d.transferencia) lines.push(`Transferencia: ${d.transferencia}`);
-  if (resumen) lines.push(`Cargado por: ${fuenteLabel(resumen.fuente)}`);
   if (withLink && d.manifiestoPdf) lines.push(`📄 Manifiesto en PDF: ${d.manifiestoPdf}`);
-  if (r.ministerio !== 'NO_APLICA') lines.push(r.rndc?.migrated ? `Ministerio: radicado ${r.rndc.radicado}` : 'Ministerio: verificando el radicado… te aviso por aquí en un momento.');
+  if (r.ministerio === 'NO_APLICA') lines.push('Ministerio: este manifiesto no sube al Ministerio porque se cargó por la pestaña Empresas.');
+  else lines.push(r.rndc?.migrated ? `Ministerio: radicado ${r.rndc.radicado}` : 'Ministerio: verificando el radicado… te aviso por aquí en un momento.');
   return lines.join('\n');
 }
 
