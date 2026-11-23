@@ -1,5 +1,8 @@
 // M7.1: read a table of several dispatches into validated rows (no Silogtran calls) and echo it back, written by code.
 import { parsePreparar } from '../validation.js';
+import { createLote } from '../store/lotes.js';
+
+export const formatUrl = () => `${process.env.PUBLIC_BASE_URL || 'https://auto-despachos-silogtran.vercel.app'}/formato-lote`;
 
 export const MAX_LOTE = 5;
 
@@ -26,6 +29,7 @@ export function parseLote(rawRows, now = new Date()) {
     const n = i + 1;
     const numero = String(raw?.numero ?? '').replace(/\D/g, '');
     try {
+      if (raw?.__error) throw new Error(raw.__error);
       if (!/^\d{6,12}$/.test(numero)) throw new Error('falta el número de la solicitud (solo dígitos).');
       const input = parsePreparar({ ...raw, numero: undefined });
       if (input.citaCargue.fecha < today) throw new Error('la cita de cargue ya pasó.');
@@ -48,7 +52,7 @@ export function parseLote(rawRows, now = new Date()) {
 const pesos = (v) => `$${Number(v).toLocaleString('es-CO')}`;
 
 // The echo shown to the person: what was understood, row by row. Nothing here comes from the model's own wording.
-export function loteEchoText({ filas, tooMany, received }) {
+export function loteEchoText({ filas, tooMany, received }, { fromModel = false } = {}) {
   const ok = filas.filter((f) => f.ok);
   const lines = [`📋 Esto fue lo que entendí (${filas.length} ${filas.length === 1 ? 'fila' : 'filas'}):`, ''];
   for (const f of filas) {
@@ -67,8 +71,20 @@ export function loteEchoText({ filas, tooMany, received }) {
     lines.push(parts.join('\n'));
   }
   if (tooMany) lines.push('', `⚠️ Mandaste ${received} filas y el máximo por lote es ${MAX_LOTE}: solo leí las primeras ${MAX_LOTE}. Envía el resto en otro lote.`);
+  const anyBad = filas.some((f) => !f.ok);
+  if (anyBad || fromModel) lines.push('', `${anyBad ? '⚠️ Revisa el formato de la tabla' : 'Para que lea exacto, usa el formato fijo'}: ${formatUrl()}`);
   lines.push('', ok.length
     ? `Todavía no preparé nada en Silogtran: esto es solo la lectura. Si hay algo mal, mándame la tabla corregida. Los vehículos externos necesitan beneficiario y anticipo en su fila.`
     : 'Ninguna fila quedó lista. Corrige lo marcado y mándame la tabla otra vez.');
   return lines.join('\n').slice(0, 3800);
 }
+
+// Shared by the fixed-format reader and the model's registrar_lote: validate, save the valid rows, return the echo text.
+export async function saveLote({ userId, rawRows, userText, fromModel, services = { createLote } }) {
+  const parsed = parseLote(rawRows);
+  if (!parsed.filas.length) return { result: { ok: false, code: 'EMPTY_BATCH' }, reply: `No encontré filas de despacho en tu mensaje. Mándame una línea por despacho con solicitud, placa y las citas de cargue y descargue. Formato: ${formatUrl()}` };
+  if (parsed.filas.some((f) => f.ok)) await services.createLote(userId, { filas: parsed.filas.filter((f) => f.ok), texto: userText });
+  return { result: { ok: true, filas: parsed.filas.length, validas: parsed.filas.filter((f) => f.ok).length }, reply: loteEchoText(parsed, { fromModel }) };
+}
+
+export const headerErrorText = (error) => `⚠️ ${error}\n\nLa tabla debe llevar la primera línea con los títulos: Solicitud;Item;Placa;Cargue;Descargue;Anticipo;Beneficiario;Observacion (Solicitud, Placa, Cargue y Descargue son obligatorias; fechas AAAA-MM-DD HH:mm).\n\nFormato y ejemplo para copiar: ${formatUrl()}`;

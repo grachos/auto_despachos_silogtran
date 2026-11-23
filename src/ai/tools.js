@@ -4,7 +4,7 @@ import { consultSolicitud, prepareDispatch, listSolicitudes, checkPlate } from '
 import { cleanFilters, filterList, buildListText } from '../silogtran/lista.js';
 import { createPending } from '../store/ia.js';
 import { createLote } from '../store/lotes.js';
-import { parseLote, loteEchoText, MAX_LOTE } from './lote.js';
+import { saveLote, MAX_LOTE } from './lote.js';
 
 const str = (description) => ({ type: 'string', description });
 const optStr = (description) => ({ type: ['string', 'null'], description });
@@ -292,10 +292,7 @@ export function makeExecutors({ userId, send, userText, services = { consultSoli
     },
     // M7.1: several dispatches in one message. Validated by code and echoed back; NOTHING is sent to Silogtran yet.
     async registrar_lote(args) {
-      const parsed = parseLote(args.filas);
-      if (!parsed.filas.length) return { result: { ok: false, code: 'EMPTY_BATCH' }, reply: 'No encontré filas de despacho en tu mensaje. Mándame una línea por despacho con solicitud, placa y las citas de cargue y descargue.' };
-      if (parsed.filas.some((f) => f.ok)) await services.createLote(userId, { filas: parsed.filas.filter((f) => f.ok), texto: userText });
-      return { result: { ok: true, filas: parsed.filas.length, validas: parsed.filas.filter((f) => f.ok).length }, reply: loteEchoText(parsed) };
+      return saveLote({ userId, rawRows: args.filas, userText, fromModel: true, services });
     },
     async consultar_solicitud(args) {
       await send('⏳ Consultando la solicitud en Silogtran…');

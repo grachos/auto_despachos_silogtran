@@ -4,6 +4,8 @@
 //  - Everything here runs in the background (waitUntil); on failure the person gets an apology, never silence.
 import { runAgentTurn } from './agent.js';
 import { makeExecutors } from './tools.js';
+import { parseTabla } from './loteTabla.js';
+import { saveLote, headerErrorText } from './lote.js';
 import { buildSummaryText, buildButtons, BUTTON_ID, resultText, EXPLAIN, CONFIRM_ERRORS } from './summary.js';
 import { FIXED_REPLIES } from './tools.js';
 import { peekToken } from '../token.js';
@@ -100,6 +102,15 @@ export function createFlow(d0) {
     // written in that question: the external-vehicle check then reads that question too.
     const lastBot = [...history].reverse().find((m) => m.role === 'assistant')?.content ?? '';
     const statedText = isBareConfirm(text) && lastBot ? `${lastBot}\n${text}` : text;
+    // Fixed-format table (header + one line per dispatch): read by code, no model. Anything else goes to the model as before.
+    const tabla = parseTabla(text);
+    if (tabla.kind !== 'none') {
+      const reply = tabla.kind === 'header_error' ? headerErrorText(tabla.error) : (await saveLote({ userId: uid, rawRows: tabla.rows, userText: text, fromModel: false, services: d.services })).reply;
+      await d.ia.addMessage(uid, 'user', text);
+      await d.ia.addMessage(uid, 'assistant', tabla.kind === 'table' ? 'Leí la tabla de despachos y se la mostré a la persona; todavía no preparé nada en Silogtran.' : reply);
+      await d.send(phone, reply);
+      return;
+    }
     const out = await runAgentTurn(
       { nombre: link.nombre, text, history, now: d.now() },
       { chat: d.chat, executors: makeExecutors({ userId: uid, send: (t) => d.send(phone, t), userText: statedText, services: d.services }) },
