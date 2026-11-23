@@ -254,6 +254,9 @@ async function selectRoute(form, origen, destino) {
     });
   }
   if (exact.length > 1) throw new ApiError('AMBIGUOUS_OPTION', `Hay varias rutas "${label}" en Silogtran.`, { status: 409 });
+  // Route data (cities/codes, never personal): logged to learn whether the route says urbano/municipal or carries municipality (DANE)
+  // codes, to decide the manifest type by municipality (MAN157, DON DIEGO is inside SANTA MARTA). Remove once decided.
+  console.log(`[preparar] ruta attrs: ${JSON.stringify(Object.fromEntries(Object.entries(exact[0].attrs).filter(([k]) => k !== 'title').map(([k, v]) => [k.replace('ctl0_mainmodule_', ''), String(v).replace(/\s+/g, ' ').trim().slice(0, 60)]))).slice(0, 900)}`);
   form.select(exact[0]);
   // The browser fires change callbacks (ctl25/ctl26) that compute freight/anticipo.
   for (const t of form.triggers('ctl0_MainModule_ruta_codigo', 'change', [`${P}ctl25`, `${P}ctl26`])) await form.callback(t);

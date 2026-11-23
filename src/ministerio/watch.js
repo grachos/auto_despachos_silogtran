@@ -51,10 +51,14 @@ const plain = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g
 // A typed request like «reenvía el manifiesto 0101227492 al Ministerio» / «sube al ministerio el 0101227492».
 // null = not a resend request (the assistant handles the text); { manifiesto } = exactly one number; { manifiesto:null, varios } = ask.
 export function parseResendRequest(text) {
-  const t = plain(text);
+  const raw = String(text ?? '');
+  const t = plain(raw);
   if (/\b(solicitud|placa)\b/.test(t)) return null; // a dispatch request, not a resend
-  const verb = /\b(re ?envi\w*|envi\w*|sub\w*|migr\w*|report\w*)\b/.test(t);
-  const intent = (verb && /\b(ministerio|rndc)\b/.test(t)) || (/\bre ?envi\w*/.test(t) && /\bmanifiesto\b/.test(t));
+  // Questions and status talk go to the assistant: «¿ya subió…?», «¿se migró…?», «cuántos reenvíos le quedan…», «estado del…».
+  if (/[¿?]/.test(raw) || /\b(ya|estado|cuant\w*|como|reenvios)\b/.test(t) || /\b(re ?envi|envi|sub|migr|report)(o|io|ado|ido|aron)\b/.test(t)) return null;
+  // Only commands (imperative / infinitive): reenvía/reenvíalo/reenviar, envía/envíalo/enviar (never «envíame»), sube/súbelo/subir, migra/migrar, reporta/reportar.
+  const verb = /\b(re ?envi(a|alo|ar|e)|envi(a|alo|ar|e)|sube|subelo|subir|suba|migra|migralo|migrar|reporta|reportalo|reportar)\b/.test(t);
+  const intent = (verb && /\b(ministerio|rndc)\b/.test(t)) || (/\bre ?envi(a|alo|ar|e)\b/.test(t) && /\bmanifiesto\b/.test(t));
   if (!intent) return null;
   const nums = [...new Set(t.match(/\b\d{6,20}\b/g) ?? [])];
   return nums.length === 1 ? { manifiesto: nums[0] } : { manifiesto: null, varios: nums.length > 1 };

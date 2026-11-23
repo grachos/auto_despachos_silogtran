@@ -221,7 +221,11 @@ export function createFlow(d0) {
     if (r.estado === 'RADICADO' && r.pdf && d.sendLinkButton) {
       return void (await d.sendLinkButton(phone, text, 'Imprimir manifiesto', r.pdf).catch(() => d.send(phone, `${text}\n📄 Manifiesto en PDF (con el código QR): ${r.pdf}`)));
     }
-    if (r.estado !== 'RADICADO' && Number(r.intentosRestantes) > 0) return void (await d.sendButtons(phone, text, resendButton(m)));
+    if (r.estado !== 'RADICADO' && Number(r.intentosRestantes) > 0) {
+      // The resend already happened: a refused/oversized button message must still deliver the text (WhatsApp cuts bodies at 1024).
+      if (text.length > 1000) { await d.send(phone, text); return void (await d.sendButtons(phone, '¿Lo reenvío otra vez?', resendButton(m)).catch(() => {})); }
+      return void (await d.sendButtons(phone, text, resendButton(m)).catch(() => d.send(phone, text)));
+    }
     await d.send(phone, text);
   }
   async function resendRequest(phone, link, text) {
