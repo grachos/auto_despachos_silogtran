@@ -6,9 +6,11 @@ import { clearPending, pickItem, startDispatch } from './despacho.js';
 import { PradoPage } from './prado.js';
 import { fillInformacion, need, parseMoney, setObservacionDespacho, readPesoManifiesto, parseWeight } from './informacion.js';
 import { addObservaciones, addContenedor } from './pestanas.js';
+import { timed } from '../perf.js';
 
-export async function runPreparation(client, numero, input, { keepOpen = false } = {}) {
-  const solicitud = await buscarSolicitud(client, numero);
+export async function runPreparation(client, numero, input, { keepOpen = false, solicitud: known = null } = {}) {
+  // `known`: the same request already read a moment ago in this turn (skips two Silogtran requests).
+  const solicitud = known && String(known.numero) === String(numero) ? known : await timed('solicitud', () => buscarSolicitud(client, numero));
   const chosen = pickItem(solicitud, input.item);
   if (solicitud.requiereContenedor && (!input.contenedor || !input.bl)) {
     throw new ApiError('CONTAINER_REQUIRED', 'La solicitud requiere contenedor: envía contenedor y bl (número de BL).', { status: 400 });
@@ -17,9 +19,9 @@ export async function runPreparation(client, numero, input, { keepOpen = false }
   let kept = false;
   try {
     const out = await client.enqueue(async () => {
-      const d = await startDispatch(client, { numero, item: chosen.item, fechaCreacion: solicitud.fechaCreacion });
+      const d = await timed('startDispatch', () => startDispatch(client, { numero, item: chosen.item, fechaCreacion: solicitud.fechaCreacion }));
       const form = new PradoPage(client, d.page);
-      const info = await fillInformacion(form, {
+      const info = await timed('fillInformacion', () => fillInformacion(form, {
         placa: input.placa,
         fuente: input.fuente,
         origen: chosen.origen,
@@ -27,9 +29,9 @@ export async function runPreparation(client, numero, input, { keepOpen = false }
         tipoManifiesto: input.tipoManifiesto,
         tipoOperacionSolicitud: solicitud.tipoOperacion,
         tipoOperacionPedido: input.tipoOperacion ?? null,
-      });
+      }));
       setObservacionDespacho(form, input.observacionDespacho); // before the tab postbacks, which send every field
-      await addObservaciones(form, { numero, item: chosen.item, input });
+      await timed('observaciones', () => addObservaciones(form, { numero, item: chosen.item, input }));
       const contenedor = solicitud.requiereContenedor ? await addContenedor(form, { input }) : null;
 
       // Re-read the anticipo at the end: later postbacks may recalculate it.

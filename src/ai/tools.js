@@ -234,7 +234,10 @@ export function nextStep(s) {
 }
 
 // Executors bound to the actor (the person linked to this phone). The actor is never a model-controlled argument.
+const CONSULT_REUSE_MS = 120_000; // a request read in this same turn is reused by preparar_despacho (saves two Silogtran requests)
+
 export function makeExecutors({ userId, send, userText, services = { consultSolicitud, prepareDispatch, createPending, listSolicitudes, checkPlate } }) {
+  let lastConsult = null; // { numero, solicitud, at }: only from this turn (executors are created per turn)
   return {
     async listar_solicitudes(args) {
       await send('⏳ Buscando solicitudes en Silogtran…');
@@ -253,6 +256,7 @@ export function makeExecutors({ userId, send, userText, services = { consultSoli
     async consultar_solicitud(args) {
       await send('⏳ Consultando la solicitud en Silogtran…');
       const s = await services.consultSolicitud(userId, args.numero);
+      lastConsult = { numero: String(args.numero), solicitud: s, at: Date.now() };
       return {
         result: {
           ok: true, numero: s.numero, requiereContenedor: s.requiereContenedor,
@@ -265,13 +269,14 @@ export function makeExecutors({ userId, send, userText, services = { consultSoli
     },
     async preparar_despacho(args) {
       await send('⏳ Preparando el despacho en Silogtran… puede tardar unos segundos.');
-      // Quick look at the vehicle master first: a plate that does not exist is told at once (and a mis-heard voice note gets caught here).
-      // Only a clear «does not exist» stops the turn; any doubt (null) continues with the normal preparation.
+      // The plate is looked up in the vehicle master INSIDE the same Silogtran session as the preparation (one lock, one session): a plate
+      // that does not exist is told at once (a mis-heard voice note gets caught here). Only a clear «does not exist / inactive» stops the
+      // turn; any doubt continues with the normal preparation.
       const placa = String(args.placa ?? '').trim().toUpperCase();
-      const plate = placa ? await Promise.resolve(services.checkPlate?.(userId, placa)).catch(() => null) : null;
-      if (plate === 'missing') return { result: { ok: false, preparado: false, code: 'PLATE_NOT_FOUND' }, reply: plateNotFoundText(placa) };
-      if (plate === 'inactive') return { result: { ok: false, preparado: false, code: 'PLATE_INACTIVE' }, reply: plateInactiveText(placa) };
-      const r = await services.prepareDispatch(userId, args.numero, args);
+      const known = lastConsult && lastConsult.numero === String(args.numero) && Date.now() - lastConsult.at < CONSULT_REUSE_MS ? lastConsult.solicitud : null;
+      const r = await services.prepareDispatch(userId, args.numero, args, { solicitud: known, precheckPlate: Boolean(placa) });
+      if (r.plate === 'missing') return { result: { ok: false, preparado: false, code: 'PLATE_NOT_FOUND' }, reply: plateNotFoundText(placa) };
+      if (r.plate === 'inactive') return { result: { ok: false, preparado: false, code: 'PLATE_INACTIVE' }, reply: plateInactiveText(placa) };
       const ext = chooseExternal(r.resumen, args, userText);
       if (ext.reply) return { result: ext.ask, reply: ext.reply }; // fixed text built by code (includes the maximum)
       if (ext.ask) return { result: ext.ask }; // nothing pending: the model asks the person and calls again

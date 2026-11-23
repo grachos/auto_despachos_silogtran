@@ -12,6 +12,7 @@ import { readVisorList } from '../silogtran/lista.js';
 import { plateStatus } from '../silogtran/placa.js';
 import { readRndc } from '../silogtran/grabar.js';
 import { getUser } from '../store/usuarios.js';
+import { timed } from '../perf.js';
 
 export function assertNumero(raw) {
   const numero = String(raw ?? '').trim();
@@ -25,24 +26,32 @@ export function assertNumero(raw) {
 export async function consultSolicitud(userId, rawNumero) {
   const numero = assertNumero(rawNumero);
   await assertActorActive(userId);
-  return withLock(sessionKey(userId), async () => {
-    const { client } = await openActorSession(userId);
-    return buscarSolicitud(client, numero);
-  });
+  return timed('consult', () => withLock(sessionKey(userId), async () => {
+    const { client } = await timed('session', () => openActorSession(userId));
+    return timed('solicitud', () => buscarSolicitud(client, numero));
+  }));
 }
 
-export async function prepareDispatch(userId, rawNumero, body) {
+// Options (only the assistant uses them; the HTTP route and the MCP keep the plain behaviour):
+//  - solicitud: the request already read in THIS turn (consultar_solicitud) so it is not read twice;
+//  - precheckPlate: look the plate up in the vehicle master inside the same lock/session, before the slow preparation. A plate that does not
+//    exist or is inactive returns { ok:false, plate:'missing'|'inactive' } without preparing anything (null/doubt never blocks).
+export async function prepareDispatch(userId, rawNumero, body, { solicitud = null, precheckPlate = false } = {}) {
   assertTokenSecret(); // fail before touching Silogtran
   const numero = assertNumero(rawNumero);
   const input = parsePreparar(body);
   await assertActorActive(userId);
-  return withLock(sessionKey(userId), async () => {
-    const { client } = await openActorSession(userId);
-    const { summary, item } = await runPreparation(client, numero, input);
+  return timed('prepare', () => withLock(sessionKey(userId), async () => {
+    const { client } = await timed('session', () => openActorSession(userId));
+    if (precheckPlate) {
+      const plate = await timed('plate', () => client.enqueue(() => plateStatus(client, input.placa))).catch((e) => { console.error('[placa] check skipped:', e?.code || e?.name || 'error'); return null; });
+      if (plate === 'missing' || plate === 'inactive') return { ok: false, plate };
+    }
+    const { summary, item } = await runPreparation(client, numero, input, { solicitud });
     // uid is always written (null = user zero) so the token is bound to its owner.
     const token = signToken({ jti: randomUUID(), uid: userId ?? null, numero, item, input, anticipo: summary.anticipoSugerido });
     return { ok: true, resumen: summary, token, tokenExpiraEnSegundos: 900 };
-  });
+  }));
 }
 
 // Requests with free slots for the "which can I dispatch?" question: one read of the viewer with the actor's own session.

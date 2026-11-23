@@ -2,6 +2,7 @@
 // A successful preparar ends the turn: the SERVER then shows the summary + buttons.
 import { systemPrompt } from './prompt.js';
 import { TOOLS, toolError } from './tools.js';
+import { timed } from '../perf.js';
 
 const MAX_STEPS = 4;
 
@@ -9,13 +10,27 @@ const MAX_STEPS = 4;
 export async function runAgentTurn({ nombre, text, history = [], now = new Date() }, deps) {
   const messages = [{ role: 'system', content: systemPrompt(nombre, now) }, ...history, { role: 'user', content: String(text).slice(0, 1000) }];
   let consulted = false;
+  // A message that carries a request number (always 0101xxxxxx, 10 digits) needs consultar_solicitud first anyway: run that read-only lookup
+  // here, in code, and show the result to the model as if it had called the tool. That saves one model round trip (~2-3 s) per turn.
+  // Any problem (not found, busy session, not a request number) is ignored and the normal model-driven flow continues unchanged.
+  const requestNumber = /\b01\d{8}\b/.exec(String(text))?.[0];
+  if (requestNumber && Object.hasOwn(deps.executors, 'consultar_solicitud')) {
+    try {
+      const out = await deps.executors.consultar_solicitud({ numero: requestNumber });
+      if (out?.result) {
+        messages.push({ role: 'assistant', content: null, tool_calls: [{ id: 'pre_consult', type: 'function', function: { name: 'consultar_solicitud', arguments: JSON.stringify({ numero: requestNumber }) } }] });
+        messages.push({ role: 'tool', tool_call_id: 'pre_consult', content: JSON.stringify(out.result).slice(0, 4000) });
+        consulted = true;
+      }
+    } catch { /* the model decides what to do */ }
+  }
   for (let step = 0; step < MAX_STEPS; step++) {
-    let msg = await deps.chat({ messages, tools: TOOLS });
+    let msg = await timed('llm', () => deps.chat({ messages, tools: TOOLS }));
     let calls = msg.tool_calls ?? [];
     // Facts about a request (does it exist, can it be dispatched, is a plate available) only come from Silogtran. If the
     // person named a request number and the model answered without any tool, it improvised: force a (read-only) lookup.
     if (!calls.length && step === 0 && !consulted && /\d{6,}/.test(String(text))) {
-      msg = await deps.chat({ messages, tools: TOOLS, toolChoice: { type: 'function', function: { name: 'consultar_solicitud' } } });
+      msg = await timed('llm', () => deps.chat({ messages, tools: TOOLS, toolChoice: { type: 'function', function: { name: 'consultar_solicitud' } } }));
       calls = msg.tool_calls ?? [];
     }
     if (calls.some((c) => c.function?.name === 'consultar_solicitud')) consulted = true;
