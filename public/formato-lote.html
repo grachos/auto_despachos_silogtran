@@ -24,7 +24,7 @@
 <tr><td>Placa</td><td>Sí</td><td>Placa del vehículo.</td></tr>
 <tr><td>Cargue</td><td>Sí</td><td>Fecha y hora de la cita: <code>AAAA-MM-DD HH:mm</code> (24 horas). También se lee <code>DD/MM/AAAA HH:mm</code>.</td></tr>
 <tr><td>Descargue</td><td>Sí</td><td>Igual que Cargue; no puede ser anterior al cargue.</td></tr>
-<tr><td>Anticipo</td><td>Sí (todas las filas)</td><td><code>cero</code>, <code>total</code> (el valor que calcula Silogtran para la ruta) o un valor en pesos (<code>500000</code>). En vehículos <b>internos</b> solo <code>cero</code> o <code>total</code>; en <b>externos</b> también un valor. Como el lote se confirma con un solo botón, cada fila debe traerlo.</td></tr>
+<tr><td>Anticipo</td><td>No (en blanco = cero)</td><td><code>cero</code>, <code>total</code> (el valor que calcula Silogtran para la ruta) o un valor en pesos (<code>500000</code>). Si lo dejas en blanco se toma como <b>cero</b> y el asistente te lo dice. En vehículos <b>internos</b> solo <code>cero</code> o <code>total</code>; en <b>externos</b> también un valor. Como el lote se confirma con un solo botón, el anticipo de cada fila se decide aquí.</td></tr>
 <tr><td>Beneficiario</td><td>Solo vehículos externos con anticipo mayor a cero</td><td><code>conductor</code> o <code>poseedor</code>. Si el anticipo es <code>cero</code> o el vehículo es interno no hace falta.</td></tr>
 <tr><td>Observacion</td><td>No</td><td>Observación del despacho (texto libre, sin el separador de columnas).</td></tr>
 <tr><td>Fuente, Contenedor, BL, Manifiesto, Operacion</td><td>No</td><td>Columnas opcionales: <code>empresas</code> / <code>activos</code>, número de contenedor y BL, tipo de manifiesto y tipo de operación.</td></tr>
@@ -32,7 +32,7 @@
 
 <h2>Reglas</h2>
 <ul>
-<li>La <b>primera línea</b> son los títulos; los obligatorios son Solicitud, Placa, Cargue, Descargue y Anticipo. El orden de las columnas es libre.</li>
+<li>La <b>primera línea</b> son los títulos; los obligatorios son Solicitud, Placa, Cargue y Descargue. El orden de las columnas es libre.</li>
 <li>Separa las columnas con <code>;</code> o con tabulador (Excel). Máximo <b>5 filas</b> por mensaje.</li>
 <li>Una fila con error no bloquea las demás: el asistente marca ❌ la que falla y dice por qué.</li>
 <li>Por ahora el asistente <b>solo lee y valida</b> la tabla; la preparación y la confirmación del lote llegan en el siguiente paso. Nada se graba sin que pulses un botón.</li>

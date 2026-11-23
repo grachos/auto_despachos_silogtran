@@ -36,8 +36,19 @@
 </table>
 
 <h2>Varios despachos a la vez</h2>
-<p>Puedes mandar hasta <b>5 despachos</b> en un solo mensaje con una tabla de formato fijo: primera línea con los títulos y una línea por despacho. El asistente la lee, te muestra lo que entendió fila por fila (✅ lista, ❌ con el motivo) y, si algo no cumple el formato, te avisa de inmediato con el link de la plantilla. <b>Por ahora solo lee la tabla: todavía no prepara ni graba</b>.</p>
-<p><a class="btn small" href="/formato-lote">Ver formato y copiar la plantilla</a></p>
+<p>Puedes mandar hasta <b>5 despachos</b> en un solo mensaje con una <b>tabla de formato fijo</b>: la primera línea con los títulos y una línea por despacho. Puedes copiarla desde Excel y pegarla en WhatsApp.</p>
+<table>
+<tr><th>Columna</th><th>¿Obligatoria?</th><th>Detalle</th></tr>
+<tr><td>Solicitud</td><td>Sí</td><td>Número de la solicitud. Si Excel le quita el cero inicial, el asistente lo completa.</td></tr>
+<tr><td>Item</td><td>No</td><td>Solo si la solicitud tiene varios ítems con cupos.</td></tr>
+<tr><td>Placa</td><td>Sí</td><td>Placa del vehículo.</td></tr>
+<tr><td>Cargue / Descargue</td><td>Sí</td><td>Fecha y hora de cada cita, <code>AAAA-MM-DD HH:mm</code> (también <code>DD/MM/AAAA HH:mm</code>). Deben ser futuras y el descargue no puede ser anterior al cargue.</td></tr>
+<tr><td>Anticipo</td><td>No</td><td><code>cero</code>, <code>total</code> o un valor en pesos. <b>En blanco se toma como cero</b> y el asistente te lo avisa. Vehículos internos: solo cero o total. Externos: también un valor.</td></tr>
+<tr><td>Beneficiario</td><td>Solo externos con anticipo mayor a cero</td><td><code>conductor</code> o <code>poseedor</code>.</td></tr>
+<tr><td>Observacion</td><td>No</td><td>Observación del despacho.</td></tr>
+</table>
+<p>El asistente lee la tabla y te muestra lo que entendió <b>fila por fila</b>: ✅ lista o ❌ con el motivo (una fila con error no bloquea las demás). Si la tabla no cumple el formato te avisa de inmediato con el link de la plantilla. También puedes escribir los despachos en texto libre, pero el formato fijo es más confiable. <b>Por ahora el asistente solo lee y valida la tabla: todavía no prepara ni graba los despachos del lote</b>; eso llegará en los siguientes pasos y siempre con tu confirmación.</p>
+<p><a class="btn small" href="/formato-lote">Ver el formato y copiar la plantilla</a></p>
 
 <h2>Si no recuerdas el número de la solicitud</h2>
 <p>Pídele al asistente que busque, por ejemplo: «¿qué solicitudes puedo despachar?», «las solicitudes del cliente Tequendama», «solicitudes de Santa Marta a Bogotá», «las de aceite de palma», «las del usuario AECHEVERRI» o «las de tractomula». También puedes darle solo los últimos dígitos («la 3220»).</p>

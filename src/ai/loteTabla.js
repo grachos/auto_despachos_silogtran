@@ -7,7 +7,7 @@ const ALIASES = {
   anticipo: 'anticipo', beneficiario: 'beneficiario', observacion: 'observacion', observaciones: 'observacion', observaciondespacho: 'observacion',
   fuente: 'fuente', contenedor: 'contenedor', bl: 'bl', manifiesto: 'tipoManifiesto', tipomanifiesto: 'tipoManifiesto', operacion: 'tipoOperacion', tipooperacion: 'tipoOperacion',
 };
-const REQUIRED = [['solicitud', 'Solicitud'], ['placa', 'Placa'], ['cargue', 'Cargue'], ['descargue', 'Descargue'], ['anticipo', 'Anticipo']];
+const REQUIRED = [['solicitud', 'Solicitud'], ['placa', 'Placa'], ['cargue', 'Cargue'], ['descargue', 'Descargue']];
 
 function splitLine(line, delim) { return line.split(delim).map((c) => c.trim()); }
 function pickDelimiter(line) {
