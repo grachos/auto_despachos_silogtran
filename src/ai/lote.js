@@ -27,7 +27,9 @@ export function parseLote(rawRows, now = new Date()) {
   const seen = new Set();
   const filas = rows.slice(0, MAX_LOTE).map((raw, i) => {
     const n = i + 1;
-    const numero = String(raw?.numero ?? '').replace(/\D/g, '');
+    // Excel drops the leading zero of request numbers (0101074194 -> 101074194): all of them start with 0101.
+    let numero = String(raw?.numero ?? '').replace(/\D/g, '');
+    if (/^101\d{6}$/.test(numero)) numero = `0${numero}`;
     try {
       if (raw?.__error) throw new Error(raw.__error);
       if (!/^\d{6,12}$/.test(numero)) throw new Error('falta el número de la solicitud (solo dígitos).');
