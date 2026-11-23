@@ -8,12 +8,13 @@ const MAX_STEPS = 4;
 
 // deps: { chat, executors, history[], now }
 export async function runAgentTurn({ nombre, text, history = [], now = new Date() }, deps) {
-  const messages = [{ role: 'system', content: systemPrompt(nombre, now) }, ...history, { role: 'user', content: String(text).slice(0, 1000) }];
+  const messages = [{ role: 'system', content: systemPrompt(nombre, now) }, ...history, { role: 'user', content: String(text).slice(0, 3000) }];
   let consulted = false;
   // A message that carries a request number (always 0101xxxxxx, 10 digits) needs consultar_solicitud first anyway: run that read-only lookup
   // here, in code, and show the result to the model as if it had called the tool. That saves one model round trip (~2-3 s) per turn.
   // Any problem (not found, busy session, not a request number) is ignored and the normal model-driven flow continues unchanged.
-  const requestNumber = /\b01\d{8}\b/.exec(String(text))?.[0];
+  const numbers = [...new Set(String(text).match(/\b01\d{8}\b/g) ?? [])];
+  const requestNumber = numbers.length === 1 ? numbers[0] : undefined; // several numbers = a batch table: no single lookup
   if (requestNumber && Object.hasOwn(deps.executors, 'consultar_solicitud')) {
     try {
       const out = await deps.executors.consultar_solicitud({ numero: requestNumber });
@@ -29,7 +30,7 @@ export async function runAgentTurn({ nombre, text, history = [], now = new Date(
     let calls = msg.tool_calls ?? [];
     // Facts about a request (does it exist, can it be dispatched, is a plate available) only come from Silogtran. If the
     // person named a request number and the model answered without any tool, it improvised: force a (read-only) lookup.
-    if (!calls.length && step === 0 && !consulted && /\d{6,}/.test(String(text))) {
+    if (!calls.length && step === 0 && !consulted && /\d{6,}/.test(String(text)) && numbers.length <= 1) {
       msg = await timed('llm', () => deps.chat({ messages, tools: TOOLS, toolChoice: { type: 'function', function: { name: 'consultar_solicitud' } } }));
       calls = msg.tool_calls ?? [];
     }

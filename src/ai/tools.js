@@ -3,6 +3,8 @@ import { ApiError } from '../http/errors.js';
 import { consultSolicitud, prepareDispatch, listSolicitudes, checkPlate } from '../dispatch/service.js';
 import { cleanFilters, filterList, buildListText } from '../silogtran/lista.js';
 import { createPending } from '../store/ia.js';
+import { createLote } from '../store/lotes.js';
+import { parseLote, loteEchoText, MAX_LOTE } from './lote.js';
 
 const str = (description) => ({ type: 'string', description });
 const optStr = (description) => ({ type: ['string', 'null'], description });
@@ -33,6 +35,41 @@ export const TOOLS = [
           cliente: optStr('Nombre o parte del nombre del cliente (ej. «tequendama»); null si no lo dijeron'),
           producto: optStr('Producto (ej. «aceite de palma»); null si no lo dijeron'),
           vehiculo: optStr('Tipo de vehículo o carrocería (ej. «tractomula», «tanque»); null si no lo dijeron'),
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'registrar_lote',
+      description: `Úsala SOLO cuando la persona manda VARIOS despachos a la vez (una tabla o una línea por despacho, máximo ${MAX_LOTE}). Lee cada fila y la registra como borrador: el sistema valida, muestra lo que entendió y NO toca Silogtran todavía. Si es un solo despacho, usa preparar_despacho. No inventes datos: lo que falte en una fila va en null y el sistema lo marca.`,
+      strict: true,
+      parameters: {
+        type: 'object', additionalProperties: false, required: ['filas'],
+        properties: {
+          filas: {
+            type: 'array',
+            items: {
+              type: 'object', additionalProperties: false,
+              required: ['numero', 'item', 'placa', 'citaCargue', 'citaDescargue', 'tipoManifiesto', 'tipoOperacion', 'fuente', 'observacionDespacho', 'contenedor', 'bl', 'beneficiario', 'anticipo'],
+              properties: {
+                numero: str('Número de la solicitud, solo dígitos'),
+                item: { type: ['integer', 'null'], description: 'Ítem de la solicitud; null si no lo dijeron' },
+                placa: str('Placa del vehículo'),
+                citaCargue: cita('Cita de cargue'),
+                citaDescargue: cita('Cita de descargue'),
+                tipoManifiesto: optStr('Tipo de manifiesto solo si lo dijeron («urbano», «general»…); null si no'),
+                tipoOperacion: optStr('Tipo de operación solo si lo pidieron expresamente; null si no'),
+                fuente: optStr('"activos" o "empresas" solo si lo dijeron; null si no'),
+                observacionDespacho: optStr('Observación del despacho tal como la escribieron; null si no hay'),
+                contenedor: optStr('Número de contenedor; null si no aplica'),
+                bl: optStr('Número de BL; null si no aplica'),
+                beneficiario: optStr('"conductor" o "poseedor" si la fila lo trae; null si no'),
+                anticipo: { type: ['integer', 'null'], description: 'Anticipo en pesos si la fila lo trae (0 si dice cero); null si no' },
+              },
+            },
+          },
         },
       },
     },
@@ -236,7 +273,7 @@ export function nextStep(s) {
 // Executors bound to the actor (the person linked to this phone). The actor is never a model-controlled argument.
 const CONSULT_REUSE_MS = 120_000; // a request read in this same turn is reused by preparar_despacho (saves two Silogtran requests)
 
-export function makeExecutors({ userId, send, userText, services = { consultSolicitud, prepareDispatch, createPending, listSolicitudes, checkPlate } }) {
+export function makeExecutors({ userId, send, userText, services = { consultSolicitud, prepareDispatch, createPending, listSolicitudes, checkPlate, createLote } }) {
   let lastConsult = null; // { numero, solicitud, at }: only from this turn (executors are created per turn)
   return {
     async listar_solicitudes(args) {
@@ -252,6 +289,13 @@ export function makeExecutors({ userId, send, userText, services = { consultSoli
       }
       // Otherwise the answer is written by code (the model never retells the list): it ends the turn.
       return { result: { ok: true, coincidencias: matches.length }, reply: buildListText(matches, f, miUsuario) };
+    },
+    // M7.1: several dispatches in one message. Validated by code and echoed back; NOTHING is sent to Silogtran yet.
+    async registrar_lote(args) {
+      const parsed = parseLote(args.filas);
+      if (!parsed.filas.length) return { result: { ok: false, code: 'EMPTY_BATCH' }, reply: 'No encontré filas de despacho en tu mensaje. Mándame una línea por despacho con solicitud, placa y las citas de cargue y descargue.' };
+      if (parsed.filas.some((f) => f.ok)) await services.createLote(userId, { filas: parsed.filas.filter((f) => f.ok), texto: userText });
+      return { result: { ok: true, filas: parsed.filas.length, validas: parsed.filas.filter((f) => f.ok).length }, reply: loteEchoText(parsed) };
     },
     async consultar_solicitud(args) {
       await send('⏳ Consultando la solicitud en Silogtran…');
