@@ -254,9 +254,7 @@ async function selectRoute(form, origen, destino) {
     });
   }
   if (exact.length > 1) throw new ApiError('AMBIGUOUS_OPTION', `Hay varias rutas "${label}" en Silogtran.`, { status: 409 });
-  // Route data (cities/codes, never personal): logged to learn whether the route says urbano/municipal or carries municipality (DANE)
-  // codes, to decide the manifest type by municipality (MAN157, DON DIEGO is inside SANTA MARTA). Remove once decided.
-  console.log(`[preparar] ruta attrs: ${JSON.stringify(Object.fromEntries(Object.entries(exact[0].attrs).filter(([k]) => k !== 'title').map(([k, v]) => [k.replace('ctl0_mainmodule_', ''), String(v).replace(/\s+/g, ' ').trim().slice(0, 60)]))).slice(0, 900)}`);
+  console.log(`[preparar] tipo_ruta=${String(exact[0].attrs.ctl0_mainmodule_tipo_ruta ?? '-').slice(0, 30)}`); // route type decides urbano/municipal
   form.select(exact[0]);
   // The browser fires change callbacks (ctl25/ctl26) that compute freight/anticipo.
   for (const t of form.triggers('ctl0_MainModule_ruta_codigo', 'change', [`${P}ctl25`, `${P}ctl26`])) await form.callback(t);
@@ -303,9 +301,11 @@ export function selectOptions(form, name) {
     .filter((o) => o.value !== '');
 }
 
-// Business rule: same origin and destination city -> 6 (VIAJE MUNICIPAL O URBANO), otherwise 1 (MANIFIESTO GENERAL).
-// Only a default: an explicit tipoManifiesto always wins.
-export const defaultManifestType = (origen, destino) => (norm(origen) === norm(destino) ? '6' : '1');
+// Business rule (default only; an explicit tipoManifiesto always wins): the chosen ROUTE says whether the trip is urban
+// (route type «URBANO», e.g. DON DIEGO - SANTA MARTA, same municipality) -> 6 (VIAJE MUNICIPAL O URBANO). Without that signal:
+// same origin and destination city name -> 6, otherwise 1 (MANIFIESTO GENERAL). Route type seen in production: URBANO.
+export const isUrbanRoute = (tipoRuta) => norm(tipoRuta) === 'urbano' || norm(tipoRuta) === 'urbana';
+export const defaultManifestType = (origen, destino, tipoRuta = null) => (isUrbanRoute(tipoRuta) || norm(origen) === norm(destino) ? '6' : '1');
 
 function setManifestType(form, input, defaultCode) {
   const name = need(form, `${P}tipmanrndc_codigo`);
@@ -374,11 +374,8 @@ export async function ensureTipoOperacion(form, tipoAfiliado, deSolicitud = null
 export async function fillInformacion(form, { placa, fuente, origen, destino, tipoManifiesto, now, tipoOperacionSolicitud, tipoOperacionPedido }) {
   const vehiculo = await selectVehicle(form, placa, fuente); // must come before the route (anticipo depends on it)
   const ruta = await selectRoute(form, origen, destino);
-  // City-related fields of the dispatch form after the route is chosen (names + values; cities only, never personal data): where to
-  // take the origin/destination CITY IDs from, to read each city's DANE code (Basicos.Ciudad.Home). Remove once decided.
-  console.log(`[preparar] ciudad fields: ${Object.entries(form.fields ?? {}).filter(([k]) => /ciudad|origen|destino|municip|dane/i.test(k) && !/IDLockHidden/i.test(k)).map(([k, v]) => `${k.replace(P, '')}=${String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, 40)}`).join(' | ').slice(0, 900) || 'none'}`);
   const fechas = await setDatesAndVolume(form, now);
-  const tipo = setManifestType(form, tipoManifiesto, defaultManifestType(origen, destino));
+  const tipo = setManifestType(form, tipoManifiesto, defaultManifestType(origen, destino, ruta.tipoRuta));
   const tipoOperacion = await ensureTipoOperacion(form, vehiculo.tipoAfiliado, tipoOperacionSolicitud, tipoOperacionPedido);
   const confirmadoPor = setConfirmadoPor(form, fuente);
   return { vehiculo, ruta, fechas, tipoManifiesto: tipo, tipoOperacion, confirmadoPor };
