@@ -66,7 +66,7 @@ export const TOOLS = [
                 contenedor: optStr('Número de contenedor; null si no aplica'),
                 bl: optStr('Número de BL; null si no aplica'),
                 beneficiario: optStr('"conductor" o "poseedor" si la fila lo trae; null si no'),
-                anticipo: { type: ['integer', 'null'], description: 'Anticipo en pesos si la fila lo trae (0 si dice cero); null si no' },
+                anticipo: { type: ['integer', 'string', 'null'], description: 'Anticipo de la fila: 0 si dice cero, "total" si dice total, o el valor en pesos (entero). Aplica a vehículos internos y externos. null si la fila no lo trae (el sistema la marcará)' },
               },
             },
           },

@@ -7,7 +7,7 @@ const ALIASES = {
   anticipo: 'anticipo', beneficiario: 'beneficiario', observacion: 'observacion', observaciones: 'observacion', observaciondespacho: 'observacion',
   fuente: 'fuente', contenedor: 'contenedor', bl: 'bl', manifiesto: 'tipoManifiesto', tipomanifiesto: 'tipoManifiesto', operacion: 'tipoOperacion', tipooperacion: 'tipoOperacion',
 };
-const REQUIRED = [['solicitud', 'Solicitud'], ['placa', 'Placa'], ['cargue', 'Cargue'], ['descargue', 'Descargue']];
+const REQUIRED = [['solicitud', 'Solicitud'], ['placa', 'Placa'], ['cargue', 'Cargue'], ['descargue', 'Descargue'], ['anticipo', 'Anticipo']];
 
 function splitLine(line, delim) { return line.split(delim).map((c) => c.trim()); }
 function pickDelimiter(line) {
@@ -35,9 +35,10 @@ function parseAnticipo(cell) {
   const s = String(cell ?? '').trim();
   if (!s) return null;
   if (['cero', 'sinanticipo'].includes(norm(s))) return 0;
+  if (['total', 'completo', 'todo'].includes(norm(s))) return 'total';
   const digits = s.replace(/[$\s.,]/g, '');
   if (/^\d{1,12}$/.test(digits)) return Number(digits);
-  throw new Error('escribe el valor en pesos (ejemplo 500000) o «cero».');
+  throw new Error('escribe «cero», «total» o el valor en pesos (ejemplo 500000).');
 }
 
 function parseBeneficiario(cell) {

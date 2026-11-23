@@ -38,8 +38,12 @@ export function parseLote(rawRows, now = new Date()) {
       if (new Date(`${input.citaDescargue.fecha}T${input.citaDescargue.hora}-05:00`) < new Date(`${input.citaCargue.fecha}T${input.citaCargue.hora}-05:00`)) throw new Error('la cita de descargue es anterior a la de cargue.');
       const ben = raw?.beneficiario == null ? null : norm(raw.beneficiario);
       if (ben !== null && ben !== 'conductor' && ben !== 'poseedor') throw new Error('el beneficiario debe ser conductor o poseedor.');
-      const ant = raw?.anticipo ?? null;
-      if (ant !== null && !(Number.isSafeInteger(ant) && ant >= 0)) throw new Error('el anticipo debe ser un valor en pesos (0 o más).');
+      let ant = raw?.anticipo ?? null;
+      if (typeof ant === 'string') { const a = norm(ant); ant = ['total', 'completo'].includes(a) ? 'total' : ['cero', 'sinanticipo'].includes(a) ? 0 : /^\d{1,12}$/.test(a.replace(/[$.,\s]/g, '')) ? Number(a.replace(/[$.,\s]/g, '')) : ant; }
+      // Every row needs its advance (a batch has ONE confirm button: no per-row choice later). Internal vehicles: «cero» or «total»;
+      // external: «cero», «total» or an amount (+ beneficiary when above zero). Which one applies is checked when the row is prepared.
+      if (ant === null) throw new Error('falta el anticipo: escribe «cero», «total» o el valor en pesos.');
+      if (ant !== 'total' && !(Number.isSafeInteger(ant) && ant >= 0)) throw new Error('el anticipo debe ser «cero», «total» o un valor en pesos.');
       const key = `${numero}|${input.item ?? ''}|${input.placa}`;
       if (seen.has(key)) throw new Error('esa misma solicitud, ítem y placa ya está en otra fila.');
       seen.add(key);
@@ -62,8 +66,9 @@ export function loteEchoText({ filas, tooMany, received }, { fromModel = false }
     const i = f.input;
     const parts = [`${f.n}. ✅ Solicitud ${f.numero}${i.item ? ` ítem ${i.item}` : ''} · placa ${clean(i.placa, 10)}`, `   Cargue: ${when(i.citaCargue)} · Descargue: ${when(i.citaDescargue)}`];
     const extra = [];
-    if (i.anticipo !== null) extra.push(`anticipo ${pesos(i.anticipo)}${i.beneficiario ? ` a ${i.beneficiario}` : ''}`);
-    else if (i.beneficiario) extra.push(`beneficiario ${i.beneficiario}`);
+    if (i.anticipo === 0) extra.push('anticipo cero');
+    else if (i.anticipo === 'total') extra.push(`anticipo total${i.beneficiario ? ` a ${i.beneficiario}` : ''}`);
+    else extra.push(`anticipo ${pesos(i.anticipo)}${i.beneficiario ? ` a ${i.beneficiario}` : ''}`);
     if (i.fuente === 'empresas') extra.push('pestaña Empresas');
     if (i.tipoManifiesto) extra.push(`manifiesto ${clean(i.tipoManifiesto, 30)}`);
     if (i.tipoOperacion) extra.push(`operación ${clean(i.tipoOperacion, 30)}`);
@@ -76,7 +81,7 @@ export function loteEchoText({ filas, tooMany, received }, { fromModel = false }
   const anyBad = filas.some((f) => !f.ok);
   if (anyBad || fromModel) lines.push('', `${anyBad ? '⚠️ Revisa el formato de la tabla' : 'Para que lea exacto, usa el formato fijo'}: ${formatUrl()}`);
   lines.push('', ok.length
-    ? `Todavía no preparé nada en Silogtran: esto es solo la lectura. Si hay algo mal, mándame la tabla corregida. Los vehículos externos necesitan beneficiario y anticipo en su fila.`
+    ? `Todavía no preparé nada en Silogtran: esto es solo la lectura. Si hay algo mal, mándame la tabla corregida. El anticipo de cada fila (cero, total o un valor) se aplica al preparar: en vehículos internos solo cero o total; en externos también un valor con su beneficiario.`
     : 'Ninguna fila quedó lista. Corrige lo marcado y mándame la tabla otra vez.');
   return lines.join('\n').slice(0, 3800);
 }
@@ -89,4 +94,4 @@ export async function saveLote({ userId, rawRows, userText, fromModel, services 
   return { result: { ok: true, filas: parsed.filas.length, validas: parsed.filas.filter((f) => f.ok).length }, reply: loteEchoText(parsed, { fromModel }) };
 }
 
-export const headerErrorText = (error) => `⚠️ ${error}\n\nLa tabla debe llevar la primera línea con los títulos: Solicitud;Item;Placa;Cargue;Descargue;Anticipo;Beneficiario;Observacion (Solicitud, Placa, Cargue y Descargue son obligatorias; fechas AAAA-MM-DD HH:mm).\n\nFormato y ejemplo para copiar: ${formatUrl()}`;
+export const headerErrorText = (error) => `⚠️ ${error}\n\nLa tabla debe llevar la primera línea con los títulos: Solicitud;Item;Placa;Cargue;Descargue;Anticipo;Beneficiario;Observacion (Solicitud, Placa, Cargue, Descargue y Anticipo son obligatorias; Anticipo = cero, total o valor en pesos; fechas AAAA-MM-DD HH:mm).\n\nFormato y ejemplo para copiar: ${formatUrl()}`;
