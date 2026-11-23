@@ -374,6 +374,9 @@ export async function ensureTipoOperacion(form, tipoAfiliado, deSolicitud = null
 export async function fillInformacion(form, { placa, fuente, origen, destino, tipoManifiesto, now, tipoOperacionSolicitud, tipoOperacionPedido }) {
   const vehiculo = await selectVehicle(form, placa, fuente); // must come before the route (anticipo depends on it)
   const ruta = await selectRoute(form, origen, destino);
+  // City-related fields of the dispatch form after the route is chosen (names + values; cities only, never personal data): where to
+  // take the origin/destination CITY IDs from, to read each city's DANE code (Basicos.Ciudad.Home). Remove once decided.
+  console.log(`[preparar] ciudad fields: ${Object.entries(form.fields ?? {}).filter(([k]) => /ciudad|origen|destino|municip|dane/i.test(k) && !/IDLockHidden/i.test(k)).map(([k, v]) => `${k.replace(P, '')}=${String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, 40)}`).join(' | ').slice(0, 900) || 'none'}`);
   const fechas = await setDatesAndVolume(form, now);
   const tipo = setManifestType(form, tipoManifiesto, defaultManifestType(origen, destino));
   const tipoOperacion = await ensureTipoOperacion(form, vehiculo.tipoAfiliado, tipoOperacionSolicitud, tipoOperacionPedido);
