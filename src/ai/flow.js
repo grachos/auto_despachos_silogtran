@@ -7,6 +7,7 @@ import { makeExecutors } from './tools.js';
 import { buildSummaryText, buildButtons, BUTTON_ID, resultText, EXPLAIN, CONFIRM_ERRORS } from './summary.js';
 import { FIXED_REPLIES } from './tools.js';
 import { peekToken } from '../token.js';
+import { RESEND_ID, resendButton, parseResendRequest, resendReplyText } from '../ministerio/watch.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 const LIMITS = { msg: Number(process.env.IA_MAX_MSG_HORA) || 40, voz: Number(process.env.IA_MAX_VOZ_HORA) || 15 };
@@ -23,6 +24,8 @@ export const isBareConfirm = (t) => {
 export const isBareCancel = (t) => /^(cancelar|cancela|cancelalo|olvidalo)$/.test(norm(t));
 
 const SLOW_MS = 52_000;
+const RESEND_USER_ERRORS = new Set(['INVALID_PARAMETER', 'MANIFEST_NOT_FOUND', 'MINISTRY_NOT_APPLICABLE', 'RESEND_LIMIT', 'MINISTRY_NO_HANDOFF', 'MINISTRY_BUTTON_NOT_FOUND', 'MINISTRY_UNREACHABLE', 'MINISTRY_REDIRECT_UNEXPECTED']);
+
 const T = {
   noAi: (n) => `Hola ${n} 👋 Tu cuenta está vinculada, pero el asistente conversacional aún no está habilitado. Mientras tanto puedes revisar el manual: ${process.env.PUBLIC_BASE_URL || 'https://auto-despachos-silogtran.vercel.app'}/manual`,
   noVoice: 'Por ahora no puedo escuchar notas de voz. Escríbeme el despacho, por ejemplo: «Despacha la solicitud 0101072807 con la placa KNL058».',
@@ -129,6 +132,7 @@ export function createFlow(d0) {
     await safe(phone, 'text', async () => {
       if ((await d.ia.usageCount(link.userId, 'msg')) >= LIMITS.msg) return void (await d.send(phone, T.limit));
       await underChatLock(phone, link, async () => {
+        if (await resendRequest(phone, link, text)) return;
         if (await typedAnswer(phone, link, text)) return;
         await d.ia.recordUsage(link.userId, 'msg');
         await turn(phone, link, text);
@@ -156,6 +160,7 @@ export function createFlow(d0) {
         }
         if (!transcript) return void (await d.send(phone, T.voiceEmpty));
         await d.send(phone, `🎙️ Entendí: «${transcript}»`); // deterministic echo: a misheard plate/number is visible right away
+        if (await resendRequest(phone, link, transcript)) return;
         if (await typedAnswer(phone, link, transcript)) return;
         await d.ia.recordUsage(link.userId, 'msg');
         await turn(phone, link, transcript);
@@ -200,10 +205,42 @@ export function createFlow(d0) {
     }
   }
 
+  // «Reenviar al Ministerio»: same as the «Enviar Ministerio» button in Silogtran. Only the owner's own Vehículos Activos dispatches
+  // (resendToMinistry checks it), max 3 resends per manifest. Never asks the model: the reply is written by code.
+  async function resendManifest(phone, link, m) {
+    if (!d.resend) return void (await d.send(phone, 'El reenvío al Ministerio no está disponible por ahora.'));
+    await d.send(phone, `⏳ Reenviando el manifiesto ${m} al Ministerio… puede tardar hasta un minuto.`);
+    let r;
+    try {
+      r = await d.resend(link.userId, m);
+    } catch (e) {
+      log('resend', e);
+      return void (await d.send(phone, RESEND_USER_ERRORS.has(e?.code) ? e.message : `No pude reenviar el manifiesto ${m} ahora (código ${e?.code ?? 'ERROR'}). Intenta de nuevo en unos minutos.`));
+    }
+    const text = resendReplyText(m, r);
+    if (r.estado === 'RADICADO' && r.pdf && d.sendLinkButton) {
+      return void (await d.sendLinkButton(phone, text, 'Imprimir manifiesto', r.pdf).catch(() => d.send(phone, `${text}\n📄 Manifiesto en PDF (con el código QR): ${r.pdf}`)));
+    }
+    if (r.estado !== 'RADICADO' && Number(r.intentosRestantes) > 0) return void (await d.sendButtons(phone, text, resendButton(m)));
+    await d.send(phone, text);
+  }
+  async function resendRequest(phone, link, text) {
+    const req = parseResendRequest(text);
+    if (!req) return false;
+    if (!req.manifiesto) {
+      await d.send(phone, req.varios ? 'Veo varios números. Dime solo el del manifiesto, por ejemplo: «reenvía el manifiesto 0101227492».' : 'Dime el número del manifiesto que quieres reenviar al Ministerio, por ejemplo: «reenvía el manifiesto 0101227492».');
+      return true;
+    }
+    await resendManifest(phone, link, req.manifiesto);
+    return true;
+  }
+
   async function onButton({ phone, link, buttonId, msgId }) {
     return turn_.run(msgId, () => onButton_({ phone, link, buttonId }));
   }
   async function onButton_({ phone, link, buttonId }) {
+    const rm = RESEND_ID.exec(String(buttonId));
+    if (rm) return safe(phone, 'button:rmin', () => underChatLock(phone, link, () => resendManifest(phone, link, rm[1])));
     const m = BUTTON_ID.exec(String(buttonId));
     if (!m) return void (await d.send(phone, T.buttonUnknown));
     const [, kind, id] = m;

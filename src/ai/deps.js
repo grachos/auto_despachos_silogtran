@@ -7,6 +7,7 @@ import { sendText, sendButtons, sendLinkButton } from '../whatsapp/api.js';
 import { confirmDispatch } from '../confirmar.js';
 import { prepareDispatch } from '../dispatch/service.js';
 import { startMinistryWatch } from '../ministerio/watch.js';
+import { resendToMinistry } from '../ministerio/resend.js';
 import { createFlow } from './flow.js';
 
 export const realFlow = createFlow({
@@ -17,6 +18,7 @@ export const realFlow = createFlow({
   downloadMedia: (id) => downloadMedia(id),
   confirmDispatch: (numero, o) => confirmDispatch(numero, { ...o, origen: 'whatsapp' }),
   watchMinistry: startMinistryWatch,
+  resend: resendToMinistry,
   prepareDispatch,
   withLock: (key, fn) => withLock(key, fn),
   send: sendText,

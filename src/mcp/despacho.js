@@ -9,6 +9,8 @@ import { createPending, getPending, claimPending, finishPending, pendingProblem 
 import { confirmDispatch } from '../confirmar.js';
 import { buildSummaryText, resultText, EXPLAIN, CONFIRM_ERRORS } from '../ai/summary.js';
 import { chooseExternal } from '../ai/tools.js';
+import { resendToMinistry } from '../ministerio/resend.js';
+import { resendReplyText } from '../ministerio/watch.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const OPT = (description) => ({ type: 'string', description, maxLength: 80 });
@@ -99,12 +101,19 @@ export const DISPATCH_TOOLS = [
     annotations: { title: 'Estado del manifiesto en el Ministerio', readOnlyHint: true, openWorldHint: true },
     scope: 'despachar',
   },
+  {
+    name: 'reenviar_ministerio',
+    description: 'Reenvía al Ministerio (RNDC) un manifiesto de un despacho propio que no tiene radicado: es lo mismo que el botón «Enviar Ministerio» de Silogtran. Úsala solo si la persona lo pide (por ejemplo después de corregir en Silogtran la causa del rechazo). Devuelve el radicado y el PDF nuevo con QR, o los errores que informa el Ministerio. Máximo 3 reenvíos por manifiesto; los viajes cargados por la pestaña Empresas no se reportan al Ministerio. No graba despachos ni mueve dinero.',
+    inputSchema: { type: 'object', additionalProperties: false, required: ['manifiesto'], properties: { manifiesto: { type: 'string', description: 'Número de manifiesto, solo dígitos.', minLength: 3, maxLength: 20 } } },
+    annotations: { title: 'Reenviar manifiesto al Ministerio', readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    scope: 'despachar',
+  },
 ];
 
 // Markdown for chat clients (the list builder was written for WhatsApp: *bold*).
 const toMarkdown = (t) => t.replace(/\*([^*\n]+)\*/g, '**$1**');
 
-export const dispatchServices = { listSolicitudes, consultSolicitud, checkPlate, prepareDispatch, createPending, getPending, claimPending, finishPending, confirmDispatch, manifestStatus };
+export const dispatchServices = { listSolicitudes, consultSolicitud, checkPlate, prepareDispatch, createPending, getPending, claimPending, finishPending, confirmDispatch, manifestStatus, resend: resendToMinistry };
 
 // 4-digit code the person must type to confirm («confirmo 4821»). Derived from the pending id, so nothing extra is stored.
 // It forces the summary to be shown, but the model also sees it: a soft barrier, not a hard guarantee (see CLAUDE.md, M6).
@@ -202,12 +211,19 @@ export const DISPATCH_HANDLERS = {
     }
   },
 
+  async reenviar_ministerio(args, principal, services = dispatchServices) {
+    const m = String(args.manifiesto ?? '').trim();
+    const r = await services.resend(principal.uid, m);
+    const errores = (r.informe?.secciones ?? []).filter((x) => x.estado === 'ERROR').flatMap((x) => x.errores.map((e) => `${x.nombre}: ${e}`)).slice(0, 5);
+    const text = [resendReplyText(m, r), ...(r.estado === 'RADICADO' && r.pdf ? [`📄 Manifiesto en PDF (con el código QR): ${r.pdf}`] : [])].join('\n');
+    return { text, structured: { ok: true, manifiesto: m, estado: r.estado, radicado: r.radicado ?? null, pdf: r.pdf ?? null, intentosRestantes: r.intentosRestantes ?? null, errores } };
+  },
   async estado_despacho(args, principal, services = dispatchServices) {
     const m = String(args.manifiesto ?? '').trim();
     const st = await services.manifestStatus(principal.uid, m);
     const base = { ok: true, manifiesto: m };
     if (st?.migrated) return { text: `Manifiesto ${m}: el Ministerio ya dio el radicado ${st.radicado}${st.fechaHora ? ` (${st.fechaHora})` : ''}. Subió sin inconvenientes.`, structured: { ...base, radicado: st.radicado, fechaHora: st.fechaHora ?? null, migrado: true } };
-    return { text: `Manifiesto ${m}: todavía SIN radicado del Ministerio. Puede tardar 30 a 60 segundos después de grabar; si pasan varios minutos, revisa las causas en Silogtran. (Los viajes cargados por la pestaña Empresas no se reportan al Ministerio.)`, structured: { ...base, radicado: null, migrado: false } };
+    return { text: `Manifiesto ${m}: todavía SIN radicado del Ministerio. Puede tardar 30 a 60 segundos después de grabar; si pasan varios minutos, puedes reenviarlo con reenviar_ministerio (si la persona lo pide) o revisar las causas en Silogtran. (Los viajes cargados por la pestaña Empresas no se reportan al Ministerio.)`, structured: { ...base, radicado: null, migrado: false } };
   },
 
   async comprobar_placa(args, principal, services = dispatchServices) {

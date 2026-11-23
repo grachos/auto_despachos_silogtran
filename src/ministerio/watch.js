@@ -9,7 +9,7 @@ import { withLock } from '../store/locks.js';
 import { openActorSession, sessionKey } from '../silogtran/userSession.js';
 import { readRndc } from '../silogtran/grabar.js';
 import { claimRndcNotice, saveRndc } from '../store/admin.js';
-import { sendText, sendLinkButton } from '../whatsapp/api.js';
+import { sendText, sendButtons, sendLinkButton } from '../whatsapp/api.js';
 import { getManifestPdfUrl } from '../silogtran/imprimir.js';
 import { resendToMinistry } from './resend.js';
 
@@ -41,6 +41,32 @@ export function explainText(m, r) {
   if (!errs.length) return failureText(m);
   const tips = TIPS.filter(([re]) => errs.some((e) => re.test(e))).map(([, t]) => t);
   return [`⚠️ El manifiesto ${m} no subió al Ministerio.`, 'El Ministerio informa:', ...errs, ...tips].join('\n');
+}
+
+// «Reenviar al Ministerio» (same as the «Enviar Ministerio» button in Silogtran): WhatsApp reply button, typed request and MCP tool.
+export const RESEND_ID = /^rmin:(\d{3,20})$/;
+export const resendButton = (m) => [{ id: `rmin:${m}`, title: 'Reenviar Ministerio' }];
+const plain = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+// A typed request like «reenvía el manifiesto 0101227492 al Ministerio» / «sube al ministerio el 0101227492».
+// null = not a resend request (the assistant handles the text); { manifiesto } = exactly one number; { manifiesto:null, varios } = ask.
+export function parseResendRequest(text) {
+  const t = plain(text);
+  if (/\b(solicitud|placa)\b/.test(t)) return null; // a dispatch request, not a resend
+  const verb = /\b(re ?envi\w*|envi\w*|sub\w*|migr\w*|report\w*)\b/.test(t);
+  const intent = (verb && /\b(ministerio|rndc)\b/.test(t)) || (/\bre ?envi\w*/.test(t) && /\bmanifiesto\b/.test(t));
+  if (!intent) return null;
+  const nums = [...new Set(t.match(/\b\d{6,20}\b/g) ?? [])];
+  return nums.length === 1 ? { manifiesto: nums[0] } : { manifiesto: null, varios: nums.length > 1 };
+}
+
+// Reply after a resend (WhatsApp and MCP). The PDF link is added by the caller (WhatsApp sends it as a button).
+export function resendReplyText(m, r) {
+  if (r?.estado === 'RADICADO') {
+    return r.yaTeniaRadicado ? `✅ El manifiesto ${m} ya tenía radicado del Ministerio: ${r.radicado}. No hace falta reenviarlo.` : explainText(m, { ...r, pdf: null });
+  }
+  const left = Number(r?.intentosRestantes ?? 0);
+  return [explainText(m, r), left > 0 ? `Cuando lo corrijas en Silogtran puedes reenviarlo de nuevo (quedan ${left} reenvíos).` : 'Ya no quedan reenvíos desde aquí; revísalo en Silogtran.'].join('\n');
 }
 
 // One reading with the owner's own Silogtran session. The session lock is held only for the reading (not for the whole wait), so the
@@ -81,16 +107,18 @@ export const realDeps = {
   saveRndc,
   claimNotice: claimRndcNotice,
   send: sendText,
+  sendButtons,
   invoke: startMinistryWatch,
   resend: resendToMinistry,
   pdf: regeneratePdf,
   sendLink: sendLinkButton,
 };
 
-async function notify(p, d, text) {
+async function notify(p, d, text, buttons = null) {
   // Exactly once per dispatch, even if two invocations overlap. Returns true when this call sent the notice.
   if (p.j && !(await d.claimNotice(p.j))) return false;
-  await d.send(p.p, text);
+  if (buttons && d.sendButtons) await d.sendButtons(p.p, text, buttons).catch(() => d.send(p.p, text));
+  else await d.send(p.p, text);
   return true;
 }
 
@@ -110,7 +138,10 @@ async function explain(p, d) {
   let r = null;
   try { r = await d.resend(p.u ?? null, p.m); } catch (e) { console.error('[ministerio] resend failed:', e?.code || e?.name || 'error'); }
   const withButton = r?.estado === 'RADICADO' && r.pdf && d.sendLink;
-  const sent = await notify(p, d, explainText(p.m, withButton ? { ...r, pdf: null } : r));
+  // Not filed and resends left: offer «Reenviar Ministerio» (after fixing the cause in Silogtran, one tap sends it again).
+  const offer = r && r.estado !== 'RADICADO' && Number(r.intentosRestantes) > 0;
+  const text = offer ? resendReplyText(p.m, r) : explainText(p.m, withButton ? { ...r, pdf: null } : r);
+  const sent = await notify(p, d, text, offer ? resendButton(p.m) : null);
   if (sent && withButton) await d.sendLink(p.p, `📄 Manifiesto ${p.m} con el código QR del Ministerio.`, 'Imprimir manifiesto', r.pdf).catch(() => d.send(p.p, `📄 Manifiesto en PDF (con el código QR): ${r.pdf}`));
 }
 
