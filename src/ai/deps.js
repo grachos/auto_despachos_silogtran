@@ -8,6 +8,8 @@ import { confirmDispatch } from '../confirmar.js';
 import { prepareDispatch } from '../dispatch/service.js';
 import { startMinistryWatch } from '../ministerio/watch.js';
 import { resendToMinistry } from '../ministerio/resend.js';
+import { startLote, cancelLote } from '../store/lotes.js';
+import { kickLoteStep } from '../lote/worker.js';
 import { createFlow } from './flow.js';
 
 export const realFlow = createFlow({
@@ -20,6 +22,7 @@ export const realFlow = createFlow({
   watchMinistry: startMinistryWatch,
   resend: resendToMinistry,
   prepareDispatch,
+  lote: { start: startLote, cancel: cancelLote, kick: kickLoteStep },
   withLock: (key, fn) => withLock(key, fn),
   send: sendText,
   sendButtons,

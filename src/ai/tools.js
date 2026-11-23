@@ -292,7 +292,8 @@ export function makeExecutors({ userId, send, userText, services = { consultSoli
     },
     // M7.1: several dispatches in one message. Validated by code and echoed back; NOTHING is sent to Silogtran yet.
     async registrar_lote(args) {
-      return saveLote({ userId, rawRows: args.filas, userText, fromModel: true, services });
+      const r = await saveLote({ userId, rawRows: args.filas, userText, fromModel: true, services });
+      return { result: r.result, reply: r.reply, buttons: r.buttons };
     },
     async consultar_solicitud(args) {
       await send('⏳ Consultando la solicitud en Silogtran…');

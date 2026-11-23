@@ -1,6 +1,7 @@
 // M7.1: read a table of several dispatches into validated rows (no Silogtran calls) and echo it back, written by code.
 import { parsePreparar } from '../validation.js';
 import { createLote } from '../store/lotes.js';
+import { loteButtons } from '../lote/summary.js';
 
 export const formatUrl = () => `${process.env.PUBLIC_BASE_URL || 'https://auto-despachos-silogtran.vercel.app'}/formato-lote`;
 
@@ -83,7 +84,7 @@ export function loteEchoText({ filas, tooMany, received }, { fromModel = false }
   const anyBad = filas.some((f) => !f.ok);
   if (anyBad || fromModel) lines.push('', `${anyBad ? '⚠️ Revisa el formato de la tabla' : 'Para que lea exacto, usa el formato fijo'}: ${formatUrl()}`);
   lines.push('', ok.length
-    ? `Todavía no preparé nada en Silogtran: esto es solo la lectura. Si hay algo mal, mándame la tabla corregida. El anticipo en blanco se toma como cero. Se aplica al preparar: en vehículos internos solo cero o total; en externos también un valor con su beneficiario.`
+    ? `Todavía no preparé nada en Silogtran: esto es solo la lectura. Pulsa «Preparar» para prepararlos uno por uno (aún no se graba nada) o mándame la tabla corregida. El anticipo en blanco se toma como cero; en vehículos internos solo vale cero o total y en externos también un valor con su beneficiario.`
     : 'Ninguna fila quedó lista. Corrige lo marcado y mándame la tabla otra vez.');
   return lines.join('\n').slice(0, 3800);
 }
@@ -92,8 +93,10 @@ export function loteEchoText({ filas, tooMany, received }, { fromModel = false }
 export async function saveLote({ userId, rawRows, userText, fromModel, services = { createLote } }) {
   const parsed = parseLote(rawRows);
   if (!parsed.filas.length) return { result: { ok: false, code: 'EMPTY_BATCH' }, reply: `No encontré filas de despacho en tu mensaje. Mándame una línea por despacho con solicitud, placa y las citas de cargue y descargue. Formato: ${formatUrl()}` };
-  if (parsed.filas.some((f) => f.ok)) await services.createLote(userId, { filas: parsed.filas.filter((f) => f.ok), texto: userText });
-  return { result: { ok: true, filas: parsed.filas.length, validas: parsed.filas.filter((f) => f.ok).length }, reply: loteEchoText(parsed, { fromModel }) };
+  const valid = parsed.filas.filter((f) => f.ok);
+  const loteId = valid.length ? await services.createLote(userId, { filas: valid, texto: userText }) : null;
+  const buttons = loteId ? loteButtons(loteId, { valid: valid.length, bad: parsed.filas.length - valid.length }) : [];
+  return { result: { ok: true, filas: parsed.filas.length, validas: valid.length }, reply: loteEchoText(parsed, { fromModel }), buttons, loteId };
 }
 
 export const headerErrorText = (error) => `⚠️ ${error}\n\nLa tabla debe llevar la primera línea con los títulos: Solicitud;Item;Placa;Cargue;Descargue;Anticipo;Beneficiario;Observacion (Solicitud, Placa, Cargue y Descargue son obligatorias; Anticipo = cero, total o valor en pesos, en blanco = cero; fechas AAAA-MM-DD HH:mm).\n\nFormato y ejemplo para copiar: ${formatUrl()}`;

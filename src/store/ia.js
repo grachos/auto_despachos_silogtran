@@ -26,18 +26,19 @@ export const pruneOld = (userId) =>
   run(supabase().from('ia_mensajes').delete().eq('user_id', userId).lt('created_at', new Date(Date.now() - 3 * 86_400_000).toISOString()));
 
 // Creates the pending row; any older PENDING of the same user is superseded (only the latest button set is live).
-export async function createPending(userId, { numero, token, resumen, anticipo }) {
+// Batch rows (`loteId`) neither supersede nor are superseded by single-dispatch confirmations: the two flows are independent.
+export async function createPending(userId, { numero, token, resumen, anticipo }, { loteId = null } = {}) {
   const db = supabase();
-  await run(db.from('ia_pendientes').update({ status: 'SUPERSEDED' }).eq('user_id', userId).eq('status', 'PENDING'));
+  if (!loteId) await run(db.from('ia_pendientes').update({ status: 'SUPERSEDED' }).eq('user_id', userId).eq('status', 'PENDING').is('lote_id', null));
   const row = await run(
-    db.from('ia_pendientes').insert({ user_id: userId, numero, token, resumen, anticipo_sugerido: anticipo, expires_at: new Date(Date.now() + PENDING_TTL_MS).toISOString() }).select('id').single(),
+    db.from('ia_pendientes').insert({ user_id: userId, numero, token, resumen, anticipo_sugerido: anticipo, lote_id: loteId, expires_at: new Date(Date.now() + PENDING_TTL_MS).toISOString() }).select('id').single(),
   );
   return row.id;
 }
 
 // True if the user already has a pending created after `createdAt` (so an older one must not be resurrected).
 export async function newerPendingExists(userId, createdAt) {
-  const rows = await run(supabase().from('ia_pendientes').select('id').eq('user_id', userId).gt('created_at', createdAt).limit(1));
+  const rows = await run(supabase().from('ia_pendientes').select('id').eq('user_id', userId).gt('created_at', createdAt).is('lote_id', null).limit(1));
   return rows.length > 0;
 }
 
@@ -45,7 +46,7 @@ export const getPending = (id) => run(supabase().from('ia_pendientes').select('*
 
 export async function latestPending(userId) {
   const rows = await run(
-    supabase().from('ia_pendientes').select('*').eq('user_id', userId).eq('status', 'PENDING').gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1),
+    supabase().from('ia_pendientes').select('*').eq('user_id', userId).eq('status', 'PENDING').is('lote_id', null).gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false }).limit(1),
   );
   return rows[0] ?? null;
 }

@@ -6,6 +6,7 @@ import { runAgentTurn } from './agent.js';
 import { makeExecutors } from './tools.js';
 import { parseTabla } from './loteTabla.js';
 import { saveLote, headerErrorText } from './lote.js';
+import { LOTE_BUTTON } from '../lote/summary.js';
 import { buildSummaryText, buildButtons, BUTTON_ID, resultText, EXPLAIN, CONFIRM_ERRORS } from './summary.js';
 import { FIXED_REPLIES } from './tools.js';
 import { peekToken } from '../token.js';
@@ -87,6 +88,32 @@ export function createFlow(d0) {
     }
   }
 
+  // Text + buttons; the body of a button message is limited to ~1000 characters (longer: text first, buttons after). If WhatsApp
+  // refuses the buttons the text still reaches the person.
+  async function sendWithButtons(phone, text, buttons, shortBody = 'Elige una opción:') {
+    try {
+      if (text.length <= 1000) await d.sendButtons(phone, text, buttons);
+      else { await d.send(phone, text); await d.sendButtons(phone, shortBody, buttons); }
+    } catch {
+      await d.send(phone, text);
+    }
+  }
+
+  // M7.2: «Preparar» on a batch echo: starts the queue (one row per invocation) and answers at once; the summary arrives when done.
+  async function startLoteFlow(phone, link, id) {
+    const lote = await d.lote?.start(id, link.userId, phone);
+    if (!lote) return void (await d.send(phone, 'Ese lote ya no está vigente (vence a la hora) o ya lo preparaste. Mándame la tabla otra vez.'));
+    const count = lote.filas?.length ?? 0;
+    await d.send(phone, `⏳ Preparando ${count} ${count === 1 ? 'despacho' : 'despachos'} en Silogtran, uno por uno (unos ${Math.max(1, Math.round((count * 18) / 60))} min). Te mando un solo resumen al terminar; no se graba nada todavía.`);
+    if (!(await d.lote.kick(id, 1))) {
+      await d.lote.cancel(id, link.userId);
+      await d.send(phone, 'No pude iniciar la preparación del lote. Mándame la tabla de nuevo en un momento.');
+    }
+  }
+  async function cancelLoteFlow(phone, link, id) {
+    await d.send(phone, (await d.lote?.cancel(id, link.userId)) ? 'Listo, cancelé el lote. No se grabó nada.' : 'Ese lote ya no estaba activo.');
+  }
+
   async function sendSummary(phone, pendingId, resumen, lead) {
     if (lead) await d.send(phone, lead);
     const text = buildSummaryText(resumen);
@@ -105,10 +132,12 @@ export function createFlow(d0) {
     // Fixed-format table (header + one line per dispatch): read by code, no model. Anything else goes to the model as before.
     const tabla = parseTabla(text);
     if (tabla.kind !== 'none') {
-      const reply = tabla.kind === 'header_error' ? headerErrorText(tabla.error) : (await saveLote({ userId: uid, rawRows: tabla.rows, userText: text, fromModel: false, services: d.services })).reply;
+      const saved = tabla.kind === 'header_error' ? null : await saveLote({ userId: uid, rawRows: tabla.rows, userText: text, fromModel: false, services: d.services });
+      const reply = saved ? saved.reply : headerErrorText(tabla.error);
       await d.ia.addMessage(uid, 'user', text);
-      await d.ia.addMessage(uid, 'assistant', tabla.kind === 'table' ? 'Leí la tabla de despachos y se la mostré a la persona; todavía no preparé nada en Silogtran.' : reply);
-      await d.send(phone, reply);
+      await d.ia.addMessage(uid, 'assistant', saved ? 'Leí la tabla de despachos y se la mostré a la persona; todavía no preparé nada en Silogtran.' : reply);
+      if (saved?.buttons?.length) await sendWithButtons(phone, reply, saved.buttons, '¿Preparo el lote?');
+      else await d.send(phone, reply);
       return;
     }
     const out = await runAgentTurn(
@@ -121,7 +150,8 @@ export function createFlow(d0) {
       await sendSummary(phone, out.id, out.resumen);
     } else {
       await d.ia.addMessage(uid, 'assistant', out.text);
-      await d.send(phone, out.text);
+      if (out.buttons?.length) await sendWithButtons(phone, out.text, out.buttons, '¿Preparo el lote?');
+      else await d.send(phone, out.text);
     }
     d.ia.pruneOld(uid).catch(() => {});
   }
@@ -256,6 +286,8 @@ export function createFlow(d0) {
   async function onButton_({ phone, link, buttonId }) {
     const rm = RESEND_ID.exec(String(buttonId));
     if (rm) return safe(phone, 'button:rmin', () => underChatLock(phone, link, () => resendManifest(phone, link, rm[1])));
+    const lb = LOTE_BUTTON.exec(String(buttonId));
+    if (lb) return safe(phone, `button:${lb[1]}`, () => underChatLock(phone, link, () => (lb[1] === 'lprep' ? startLoteFlow(phone, link, lb[2]) : cancelLoteFlow(phone, link, lb[2]))));
     const m = BUTTON_ID.exec(String(buttonId));
     if (!m) return void (await d.send(phone, T.buttonUnknown));
     const [, kind, id] = m;

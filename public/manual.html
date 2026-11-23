@@ -47,7 +47,14 @@
 <tr><td>Beneficiario</td><td>Solo externos con anticipo mayor a cero</td><td><code>conductor</code> o <code>poseedor</code>.</td></tr>
 <tr><td>Observacion</td><td>No</td><td>Observación del despacho.</td></tr>
 </table>
-<p>El asistente lee la tabla y te muestra lo que entendió <b>fila por fila</b>: ✅ lista o ❌ con el motivo (una fila con error no bloquea las demás). Si la tabla no cumple el formato te avisa de inmediato con el link de la plantilla. También puedes escribir los despachos en texto libre, pero el formato fijo es más confiable. <b>Por ahora el asistente solo lee y valida la tabla: todavía no prepara ni graba los despachos del lote</b>; eso llegará en los siguientes pasos y siempre con tu confirmación.</p>
+<p>El asistente lee la tabla y te muestra lo que entendió <b>fila por fila</b>: ✅ lista o ❌ con el motivo (una fila con error no bloquea las demás). Si la tabla no cumple el formato te avisa de inmediato con el link de la plantilla. También puedes escribir los despachos en texto libre, pero el formato fijo es más confiable.</p>
+<h3>Cómo sigue el lote</h3>
+<ol>
+<li>Pulsa <b>Preparar lote</b> (o <i>Preparar válidas</i> si alguna fila tiene error). El asistente prepara los despachos en Silogtran <b>uno por uno</b> (unos 15-20 segundos cada uno) y <b>no graba nada</b>.</li>
+<li>Al terminar recibes <b>un solo resumen</b> con todas las filas: ✅ preparada (ruta, conductor, citas y anticipo tal como quedó en Silogtran) o ❌ rechazada con el motivo.</li>
+<li>Puedes pulsar <b>Cancelar lote</b> en cualquier momento. Lo preparado vence a los <b>15 minutos</b>.</li>
+</ol>
+<p>Una fila se rechaza (sin afectar las demás) si: la placa no existe o está inactiva; el vehículo es <b>interno</b> y pediste un valor distinto de <i>cero</i> o <i>total</i>; el vehículo es <b>externo</b> con anticipo mayor a cero y no pusiste el beneficiario; el anticipo supera el máximo de la ruta; o Silogtran no puede prepararla (por ejemplo, la solicitud ya no tiene cupos). <b>Por ahora el lote se prepara pero todavía no se confirma ni se graba</b>: la confirmación del lote llega en el siguiente paso y siempre con tu confirmación.</p>
 <p><a class="btn small" href="/formato-lote">Ver el formato y copiar la plantilla</a></p>
 
 <h2>Si no recuerdas el número de la solicitud</h2>
